@@ -1,0 +1,258 @@
+name: Build and publish the OS Images
+
+on:
+  release:
+    types: [published]
+    
+permissions:
+  id-token: write # This is required for requesting the JWT
+  contents: write # This is required for actions/checkout, and for updating the release
+
+jobs:
+  build-and-publish:
+    if: startsWith(github.event.release.tag_name, 'v')
+    outputs:
+      digests: ${{ steps.hash.outputs.digests }}
+    runs-on: 16-core
+    environment: release
+    steps:
+      - name: Setup Earthly
+        uses: earthly/actions-setup@v1
+        with:
+          version: v0.8.16
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_SA_EMAIL }}
+
+      - name: "Set up Cloud SDK"
+        uses: "google-github-actions/setup-gcloud@v3"
+        with:
+          version: ">= 363.0.0"
+
+      - name: Build FluoriteOS image for cloud vTPM
+        run: |
+          earthly --strict -P +fluorite-os --output_dir=fluorite-os/cloud-vtpm/
+
+          # Compress the image for image creation on Google Cloud
+          tar -Sczf fluorite-os/cloud-vtpm/disk.raw.tar.gz -C fluorite-os/cloud-vtpm/ disk.raw
+
+      - name: Build FluoriteOS image for cloud vTPM with Nvidia drivers
+        run: |
+          earthly --strict -P +fluorite-os --nvidia_driver=true --output_dir=fluorite-os/cloud-vtpm-with-gpu/
+
+          # Compress the image for image creation on Google Cloud
+          tar -czf fluorite-os/cloud-vtpm-with-gpu/disk.raw.tar.gz -C fluorite-os/cloud-vtpm-with-gpu/ disk.raw
+
+      - name: Build the GCP Shielded VM Notarizer enclave
+        run: |
+          earthly --strict -P +gcp-notarizer-os --output_dir=gcp-cvm-notarizer/
+          cp libraries/attestation/gcp-shielded-vm-attestation/gcp_notarizer_measurements.json gcp-cvm-notarizer/gcp_notarizer_measurements.json
+
+          # Compress the image for image creation on Google Cloud
+          tar -czf gcp-cvm-notarizer/disk.raw.tar.gz -C gcp-cvm-notarizer/ disk.raw
+      
+      - name: Build OVMF, IGVM inst qemu dep, QEMU
+        run: |
+          earthly --strict +qemu
+          earthly --strict +ovmf
+
+      - name: Build SVSM Host and Guest Kernel
+        run: earthly --strict +svsm-kernel
+
+      - name: Build FluoriteOS Image for AMD SEV-SNP Baremetal platform
+        run: earthly --strict -P +fluorite-os --nvidia_driver=true --snp_bare_metal=true --output_dir=fluorite-os/baremetal-amd-sev/
+
+      - name: Build the COCONUT IGVM package
+        run: |
+          earthly --strict +svsm
+          cp libraries/attestation/svsm-sev-attestation/baremetal_measurements.json fluorite-os/baremetal-amd-sev/baremetal_measurements.json
+
+      - name: Package and compress SVSM artifacts
+        run: |
+          tar -czf fluorite-os/baremetal-amd-sev/svsm.tar.gz igvminst/ qemu/ coconut-svsm/ ./svsm-linux-host ./svsm-linux-guest
+
+      - name: Set version for uploads
+        id: version
+        run: |
+          VERSION="${{ github.event.release.tag_name }}"
+          VERSION_NO_V="${VERSION#v}"
+          echo "tag=${VERSION}" >> $GITHUB_OUTPUT
+          echo "semver=${VERSION_NO_V}" >> $GITHUB_OUTPUT
+
+      - name: Upload GCP Notarizer to Cloud Storage with gsutil
+        id: upload-gcp-notarizer
+        env:
+          VERSION: ${{ steps.version.outputs.semver }}
+        run: |
+          gsutil -m cp -r ./gcp-cvm-notarizer gs://fluorite/${VERSION}/
+
+      - name: Upload FluoriteOS images to Cloud Storage with gsutil
+        id: upload-os-versions
+        env:
+          VERSION: ${{ steps.version.outputs.semver }}
+        run: |
+          gsutil -m cp -r ./fluorite-os gs://fluorite/${VERSION}/
+
+      - name: Publish OS images to GCP
+        env:
+          GCP_PROJECT_ID: fluorite-os
+          VERSION: ${{ steps.version.outputs.semver }}
+        run: |
+          # Convert version to GCP format (dots to dashes)
+          VERSION_FORMATTED="${VERSION//./-}"
+
+          GCS_BUCKET="gs://fluorite"
+
+          # Create GCP image for fluorite-os (vTPM without GPU)
+          echo "Creating fluorite-os-${VERSION_FORMATTED}..."
+          gcloud compute images create "fluorite-os-${VERSION_FORMATTED}" \
+            --project "$GCP_PROJECT_ID" \
+            --source-uri "${GCS_BUCKET}/${VERSION}/fluorite-os/cloud-vtpm/disk.raw.tar.gz" \
+            --family "fluorite-os" \
+            --guest-os-features="UEFI_COMPATIBLE,VIRTIO_SCSI_MULTIQUEUE" \
+            --description "Fluorite OS ${VERSION} - vTPM enabled"
+
+          # Create GCP image for fluorite-os-gpu (vTPM with GPU)
+          echo "Creating fluorite-os-with-gpu-${VERSION_FORMATTED}..."
+          gcloud compute images create "fluorite-os-with-gpu-${VERSION_FORMATTED}" \
+            --project "$GCP_PROJECT_ID" \
+            --source-uri "${GCS_BUCKET}/${VERSION}/fluorite-os/cloud-vtpm-with-gpu/disk.raw.tar.gz" \
+            --family "fluorite-os-gpu" \
+            --guest-os-features="UEFI_COMPATIBLE,VIRTIO_SCSI_MULTIQUEUE" \
+            --description "Fluorite OS ${VERSION} - vTPM enabled with NVIDIA drivers"
+
+          # Create GCP image for gcp-notarizer-os (CVM with SEV-SNP)
+          echo "Creating gcp-notarizer-os-${VERSION_FORMATTED}..."
+          gcloud compute images create "gcp-notarizer-os-${VERSION_FORMATTED}" \
+            --project "$GCP_PROJECT_ID" \
+            --source-uri "${GCS_BUCKET}/${VERSION}/gcp-cvm-notarizer/disk.raw.tar.gz" \
+            --family "gcp-notarizer-os" \
+            --guest-os-features="UEFI_COMPATIBLE,SEV_CAPABLE,SEV_SNP_CAPABLE,SEV_LIVE_MIGRATABLE_V2,VIRTIO_SCSI_MULTIQUEUE" \
+            --description "GCP Notarizer OS ${VERSION} - Confidential VM with SEV-SNP"
+
+          # Make images publicly accessible
+          echo ""
+          echo "Making images publicly accessible..."
+          for image in "fluorite-os-${VERSION_FORMATTED}" "fluorite-os-with-gpu-${VERSION_FORMATTED}" "gcp-notarizer-os-${VERSION_FORMATTED}"; do
+            echo "Setting public access for ${image}..."
+            gcloud compute images add-iam-policy-binding "$image" \
+              --project "$GCP_PROJECT_ID" \
+              --member "allAuthenticatedUsers" \
+              --role "roles/compute.imageUser"
+          done
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Install azcopy
+        run: |
+          wget https://aka.ms/downloadazcopy-v10-linux
+          tar -xzf downloadazcopy-v10-linux
+          sudo cp ./azcopy_linux_amd64_*/azcopy /usr/bin/azcopy
+          sudo chmod +x /usr/bin/azcopy
+          rm -rf ./azcopy_linux_amd64_*/
+          rm downloadazcopy-v10-linux
+
+      # For qemu-img to resize disk
+      - name: Set up QEMU
+        run: sudo apt-get update && sudo apt-get install -y qemu-utils
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Run script to resize and upload image to Azure
+        working-directory: operator/azure-disk-upload
+        env:
+          VERSION: ${{ steps.version.outputs.semver }}
+        run: |
+
+          VERSION_FORMATTED="${VERSION//./-}"
+
+          uv tool install .
+
+          azure-disk-upload \
+            --os-disk-path ../../fluorite-os/cloud-vtpm/disk.raw \
+            --resource-group-name fluorite-azure-registries \
+            --location eastus2 \
+            --target-regions francecentral \
+            --gallery-image-name "fluorite-os-${VERSION_FORMATTED}" \
+            --sku "fluorite-os-${VERSION_FORMATTED}" \
+            --version "0.1.0"
+
+          azure-disk-upload \
+            --os-disk-path ../../fluorite-os/cloud-vtpm-with-gpu/disk.raw \
+            --resource-group-name fluorite-azure-registries \
+            --location eastus2 \
+            --target-regions francecentral \
+            --gallery-image-name "fluorite-os-with-gpu-${VERSION_FORMATTED}" \
+            --sku "fluorite-os-with-gpu-${VERSION_FORMATTED}" \
+            --version "0.1.0"
+
+      - name: Build fluorite-cli, fluorite-baremetal-cli, example client
+        env:
+          VERSION: ${{ steps.version.outputs.semver }}
+        run: |
+          mkdir binaries
+
+          earthly +fluorite-cli
+          earthly +fluorite-baremetal-cli
+          earthly +client
+
+          cp ./operator/fluorite-cli/target/release/fluorite \
+            ./fluorite-baremetal-cli/target/release/fluorite-baremetal \
+            ./multinode-provisioning/examples/client/target/release/client \
+            ./binaries
+
+          gsutil -m cp -r ./binaries gs://fluorite/${VERSION}/
+      
+      - name: Upload golden platform measurements
+        env:
+          VERSION: ${{ steps.version.outputs.semver }}
+        run: |
+          gsutil -m cp -r ./measurements gs://fluorite/${VERSION}/
+
+      - name: Upload launch-vm.sh script
+        env:
+          VERSION: ${{ steps.version.outputs.semver }}
+        run: |
+          gsutil -m cp -r ./scripts/launch-vm.sh gs://fluorite/${VERSION}/scripts/
+
+      - name: Generate SLSA subjects
+        id: hash
+        run: |
+          sha256sum                                     \
+            fluorite-os/cloud-vtpm/*                    \
+            fluorite-os/cloud-vtpm-with-gpu/*           \
+            gcp-cvm-notarizer/*                         \
+            fluorite-os/baremetal-amd-sev/*             \
+            binaries/*                                  \
+            > artifacts.SHA256SUMS
+          
+          echo "digests=$(base64 -w0 artifacts.SHA256SUMS)" >> $GITHUB_OUTPUT
+
+  provenance-os:
+    if: startsWith(github.event.release.tag_name, 'v')
+    needs: build-and-publish
+    permissions:
+      actions: read # To read the workflow path.
+      id-token: write # To sign the provenance.
+      contents: write # To add assets to a release.
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
+    with:
+      base64-subjects: "${{ needs.build-and-publish.outputs.digests }}"
+      upload-assets: true # Upload the provenance to Github Releases
+      provenance-name: fluorite-os.intoto.jsonl
+

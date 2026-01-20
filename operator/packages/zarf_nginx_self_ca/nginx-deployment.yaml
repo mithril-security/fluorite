@@ -1,0 +1,95 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: example-server-cert
+spec:
+  secretName: example-server-cert
+  issuerRef:
+    name: root-ca-issuer
+    kind: Issuer
+  commonName: ###ZARF_VAR_HOSTNAME###
+  duration: 144h # 6d
+  usages: 
+    - digital signature
+  dnsNames:
+    - ###ZARF_VAR_HOSTNAME###
+  privateKey:
+    algorithm: ECDSA
+    size: 384
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-service
+spec:
+  ports:
+    - targetPort: web
+      port: 80
+      name: web
+  selector:
+    app: nginx
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx
+  labels:
+    app: nginx
+spec:
+  selector:
+    matchLabels:
+      app: nginx
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:1.29.3
+          ports:
+            - name: web
+              containerPort: 80
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          volumeMounts:
+            - name: nginx-volume
+              mountPath: /usr/share/nginx/html
+            - name: nginx-startup-script-volume
+              mountPath: /docker-entrypoint.d/start.sh
+              subPath: start.sh
+          command: ["/bin/sh", "/docker-entrypoint.d/start.sh"]
+      volumes:
+        - name: nginx-volume
+          emptyDir: {}  # Change to emptyDir for writable directory
+        - name: nginx-startup-script-volume
+          configMap:
+            name: nginx-startup-script
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-startup-script
+data:
+  start.sh: |
+    #!/bin/sh
+    POD_NAME=${POD_NAME:-unknown}
+    NODE_NAME=${NODE_NAME:-unknown}
+
+    echo "<html>
+    <head><title>Hello World!</title></head>
+    <body>
+      Hello World from Pod: $POD_NAME, in Node: $NODE_NAME
+    </body>
+    </html>" > /usr/share/nginx/html/index.html
+
+    nginx -g "daemon off;"

@@ -1,0 +1,92 @@
+# https://github.com/ray-project/kuberay/blob/7791a8786861818f0cebcce381ef221436a0fa4d/ray-operator/config/samples/ray-service.llm-serve.yaml
+apiVersion: ray.io/v1
+kind: RayService
+metadata:
+  name: ray-serve-llm
+spec:
+  serveConfigV2: |
+    applications:
+    - name: llms
+      import_path: ray.serve.llm:build_openai_app
+      route_prefix: "/"
+      args:
+        llm_configs:
+        - model_loading_config:
+            model_id: qwen2.5-7b-instruct
+            model_source: Qwen/Qwen2.5-7B-Instruct
+          engine_kwargs:
+            dtype: bfloat16
+            max_model_len: 32768
+            gpu_memory_utilization: 0.9
+            revision: a09a35458c702b33eeacc393d103063234e8bc28
+          deployment_config:
+            num_replicas: ###ZARF_VAR_NODES###
+            max_ongoing_requests: 128
+  rayClusterConfig:
+    rayVersion: "2.52.0"
+    headGroupSpec:
+      rayStartParams:
+        num-cpus: "0"
+        num-gpus: "0"
+      template:
+        spec:
+          containers:
+          - name: ray-head
+            image: rayproject/ray-llm:2.52.0-py311-cu128
+            ports:
+            - containerPort: 8000
+              name: serve
+              protocol: TCP
+            - containerPort: 8080
+              name: metrics
+              protocol: TCP
+            - containerPort: 6379
+              name: gcs
+              protocol: TCP
+            - containerPort: 8265
+              name: dashboard
+              protocol: TCP
+            - containerPort: 10001
+              name: client
+              protocol: TCP
+            resources:
+              limits:
+                cpu: "2"
+                memory: "8Gi"
+              requests:
+                cpu: "2"
+                memory: "8Gi"
+    workerGroupSpecs:
+    - replicas: ###ZARF_VAR_NODES### # Number of nodes with GPUs
+      minReplicas: 1
+      maxReplicas: ###ZARF_VAR_NODES###  # Number of nodes with GPUs
+      numOfHosts: 1
+      groupName: gpu-group
+      rayStartParams:
+        num-gpus: "###ZARF_VAR_GPUS_PER_NODE###"
+      template:
+        spec:
+          runtimeClassName: nvidia
+          containers:
+          - name: ray-worker
+            image: rayproject/ray-llm:2.52.0-py311-cu128
+            env:
+            - name: HUGGING_FACE_HUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: hf-token
+                  key: hf_token
+            resources:
+              limits:
+                cpu: "8"
+                memory: "40Gi"
+                nvidia.com/gpu: "###ZARF_VAR_GPUS_PER_NODE###"
+              requests:
+                cpu: "8"
+                memory: "40Gi"
+                nvidia.com/gpu: "###ZARF_VAR_GPUS_PER_NODE###"
+          # Please add the following taints to the GPU node.
+          tolerations:
+            - key: "nvidia.com/gpu"
+              operator: "Exists"
+              effect: "NoSchedule"

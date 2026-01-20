@@ -1,0 +1,45 @@
+[Unit]
+Description=Start the Multinode App
+After=network-online.target
+
+[Service]
+Type=simple
+Environment="HOME=/root"
+ExecStart=/opt/provisioning 3443
+
+# Automatically generated from https://github.com/synacktiv/shh and manually improved
+NoNewPrivileges=yes
+PrivateMounts=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectKernelLogs=true
+ProtectControlGroups=true
+LockPersonality=true
+RestrictRealtime=true
+ProtectClock=true
+MemoryDenyWriteExecute=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_NETLINK AF_UNIX
+SocketBindDeny=ipv4:udp
+SocketBindDeny=ipv6:udp
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_SYS_ADMIN CAP_DAC_OVERRIDE
+SystemCallFilter=~@aio:EPERM @clock:EPERM @cpu-emulation:EPERM @debug:EPERM @keyring:EPERM @memlock:EPERM @module:EPERM @obsolete:EPERM @pkey:EPERM @privileged:EPERM @raw-io:EPERM @reboot:EPERM @resources:EPERM @sandbox:EPERM @setuid:EPERM @swap:EPERM @sync:EPERM @timer:EPERM
+PrivateTmp=yes
+ProtectSystem=strict
+ReadWritePaths=/tmp/ /var/lib/rancher/ /etc/systemd/system /root/.local/state/ /root/.zarf-cache
+RestrictNamespaces=~mnt pid net uts mnt user ipc cgroup
+DevicePolicy=closed
+# /dev/tpmrm0
+DeviceAllow=char-tpm rwm
+# cloud-init config
+DeviceAllow=/dev/vda
+# /dev/nvidia-modeset /dev/nvidiactl /dev/nvidia0
+DeviceAllow=char-nvidia rwm 
+DeviceAllow=/dev/tpmrm0 rwm
+DeviceAllow=/dev/tpm0 rwm
+SystemCallArchitectures=native
+ProtectHostname=yes
+ProtectProc=invisible
+RestrictSUIDSGID=yes
+
+[Install]
+WantedBy=multi-user.target

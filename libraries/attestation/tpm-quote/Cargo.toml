@@ -1,0 +1,53 @@
+[package]
+name = "tpm-quote"
+version = "0.1.0"
+edition = "2021"
+authors = ["Mithril Security Contributors"]
+license = "Apache-2.0"
+description = "A library for generating and verifying TPM 2.0 quotes"
+
+[features]
+default = ["generate", "verify"]
+generate = ["dep:tss-esapi", "dep:o2o"]
+verify = [
+    "dep:ecdsa",
+    "dep:p256",
+    "dep:spki",
+    "dep:ring",
+    "dep:const-oid",
+    "dep:sha2",
+    "dep:rustls-webpki",
+    "dep:rustls-pki-types",
+]
+
+[dependencies]
+log = "0.4.22"
+serde = { version = "1.0.214", features = ["derive"] }
+serde_with = { version = "3.12.0", features = ["hex", "base64"] }
+tpm-structs = { path = "../tpm-structs" }
+fn-error-context = "0.2.1"
+enumflags2 = "0.7.10"
+num-derive = "0.4.2"
+num-traits = "0.2.19"
+
+anyhow = { version = "1.0.93" }
+
+
+tss-esapi = { version = "7.5.1", optional = true }
+o2o = { version = "0.5.3", optional = true }
+
+ecdsa = { version = "0.16.9", features = ["pem"], optional = true }
+p256 = { version = "0.13.2", optional = true }
+spki = { version = "0.7.3", features = ["pem"], optional = true }
+ring = { version = "0.17.14", optional = true }
+const-oid = { version = "0.9.6", features = ["db"], optional = true }
+sha2 = { version = "0.10.8", optional = true }
+rustls-webpki = { version = "0.103.6", optional = true }
+digest = { version = "0.10.7" }
+thiserror = "2.0.0"
+pkcs1 = "0.7.5"
+rustls-pki-types = { version = "1.12.0", optional = true }
+
+[dev-dependencies]
+insta = "1.41.1"
+serde_json = "1.0.132"

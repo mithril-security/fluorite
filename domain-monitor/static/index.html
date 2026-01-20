@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SSL/TLS Domain Monitor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for Inter font and general body styling */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6; /* Light gray background */
+            color: #374151; /* Dark gray text */
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column; /* Stack header and main content vertically */
+            align-items: center; /* Center content horizontally */
+            justify-content: flex-start; /* Start content from the top */
+        }
+        /* Custom scrollbar for better aesthetics */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #e2e8f0;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #94a3b8;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+        /* Custom styling for details/summary element */
+        details summary {
+            cursor: pointer;
+            list-style: none; /* Remove default arrow */
+        }
+        details summary::-webkit-details-marker {
+            display: none; /* Remove default arrow for Webkit browsers */
+        }
+        details summary::before {
+            content: "\25B6"; /* Unicode right-pointing triangle (▶) */
+            margin-right: 0.5rem;
+            transition: transform 0.2s ease-in-out;
+            display: inline-block;
+        }
+        details[open] summary::before {
+            content: "\25BC"; /* Unicode down-pointing triangle (▼) */
+            transform: rotate(0deg); /* Reset rotation when open */
+        }
+    </style>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body class="flex flex-col items-center min-h-screen bg-gray-100 text-gray-800">
+
+    <header class="bg-blue-700 text-white py-6 shadow-md w-full mb-8">
+        <div class="max-w-4xl mx-auto px-4 flex items-center justify-center space-x-3">
+            <i data-lucide="lock" class="w-10 h-10"></i>
+            <h1 class="text-4xl font-bold">Domain Monitor</h1>
+        </div>
+    </header>
+
+    <div class="bg-white p-8 rounded-xl shadow-lg w-full max-w-6xl mb-8 border border-gray-200">
+        <p class="text-center mt-2 mb-8 text-lg text-gray-600">Retrieve the attestation detail of any domain.</p>
+
+        <section id="input-section" class="mb-8">
+            <form id="domain-lookup-form" class="flex flex-col md:flex-row items-center space-y-4 md:space-y-0 md:space-x-4">
+                <div class="relative flex-grow w-full">
+                    <label for="domain-input" class="sr-only">Domain Name</label>
+                    <input
+                        type="text"
+                        id="domain-input"
+                        name="domain"
+                        placeholder="e.g., https://chat.demo.mithrilsecurity.io"
+                        required
+                        autofocus
+                        class="w-full px-5 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg transition duration-200 ease-in-out"
+                        pattern="^(https?:\/\/)(([^:\/?#]*)(?::([0-9]+))?)([\/]{0,1}[^?#]*)(\?[^#]*|)(#.*|)$"
+                        title="Please enter a valid domain name (e.g., https://example.com, https://sub.example.org)"
+                    >
+                    <p id="input-error-message" class="absolute -bottom-6 left-0 text-red-500 text-sm mt-1 hidden"></p>
+                </div>
+                <button
+                    type="submit"
+                    id="lookup-button"
+                    class="w-full md:w-auto px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200 ease-in-out flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    <span id="button-text">Lookup Certificate</span>
+                    <i data-lucide="loader-circle" class="w-5 h-5 animate-spin hidden" id="loading-spinner"></i>
+                </button>
+            </form>
+        </section>
+
+        <section id="results-section" class="hidden">
+            <h2 id="results-title" class="text-3xl font-semibold text-blue-600 mb-6 border-b pb-3">
+                Certificate Information for <span class="domain-display font-bold"></span>
+            </h2>
+            
+            <div id="loading-indicator" class="flex items-center justify-center space-x-3 py-8 text-blue-500 hidden">
+                <i data-lucide="loader-circle" class="w-8 h-8 animate-spin"></i>
+                <span class="text-xl">Loading certificate data...</span>
+            </div>
+
+            <div id="error-display" class="bg-red-100 border border-red-400 text-red-700 px-6 py-4 rounded-lg flex items-start space-x-3 hidden" role="alert">
+                <i data-lucide="circle-alert" class="w-6 h-6"></i>
+                <div class="font-medium font-mono" id="error-message-text" style="white-space: pre-wrap;"></div>
+            </div>
+
+            
+            <div id="wildcard-certificate-message" class="bg-yellow-100 border border-yellow-400 text-yellow-700 px-6 py-4 rounded-lg flex items-center space-x-3 hidden w-full mb-4" role="alert">
+                <i data-lucide="shield-alert" class="w-6 h-6"></i>
+                <p class="font-medium">
+                    A wildcard domain was issued for this domain. 
+                </p>
+            </div>
+            <div id="certificate-table-view" class="hidden">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-2xl font-semibold text-gray-700">Certificates</h3>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full bg-white rounded-lg shadow-md">
+                        <thead>
+                            <tr class="bg-gray-200 text-gray-600 uppercase text-sm leading-normal">
+                                <th class="py-3 px-6 text-left">ID</th>
+                                <th class="py-3 px-6 text-left">Issued</th>
+                                <th class="py-3 px-6 text-left">Validity</th>
+                                <th class="py-3 px-6 text-left">Common Name</th>
+                                <th class="py-3 px-6 text-left">Issuer</th>
+                                <th class="py-3 px-6 text-center">Attestation Backend</th>
+                                <th class="py-3 px-6 text-center">Attestation Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="certificate-table-body" class="text-gray-600 text-sm font-light">
+                            </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="single-certificate-view" class="hidden">
+                <div class="flex items-center justify-between mb-4">
+                    <div id="safety-message" class="bg-green-100 border border-green-400 text-green-700 px-6 py-4 rounded-lg flex items-center space-x-3 hidden w-full" role="alert">
+                        <i data-lucide="shield-check" class="w-6 h-6"></i>
+                        <p class="font-medium">
+                            This website is considered **safe** as its attestation details are correct.
+                            All communications are secure.
+                        </p>
+                    </div>
+                </div>
+
+                <div id="certificate-data-display" class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                    <div class="bg-purple-200 p-6 rounded-lg shadow-lg border border-purple-400 md:col-span-2">
+                        <h3 class="text-2xl font-bold text-purple-900 mb-4 flex items-center space-x-3">
+                            <i data-lucide="shield-check" class="w-6 h-6"></i>
+                            <span>Attestation Details <a id="attestation-link" href="#" target="_blank" class="text-blue-600 hover:underline ml-1"><i data-lucide="external-link" class="w-6 h-6 inline-block"></i></a></span>
+                            
+                            <span id="attestation-status-icon" class="ml-auto"></span>
+                            <span id="attestation-status-text" class="text-base font-semibold"></span>
+                        </h3>
+
+                        <details class="mt-4 bg-purple-100 p-3 rounded-md border border-purple-300" id="reported-tcb-version">
+                            <summary class="font-semibold text-purple-800 text-base flex items-center space-x-2">
+                                <i data-lucide="cpu" class="w-5 h-5"></i>
+                                <span>Reported TCB Version</span>
+                            </summary>
+                            <div class="mt-2 pl-4 text-gray-700 space-y-1 text-sm">
+                                <p><strong>Microcode:</strong> <span id="attestation-reported-tcb-microcode">N/A</span></p>
+                                <p><strong>SNP:</strong> <span id="attestation-reported-tcb-snp">N/A</span></p>
+                                <p><strong>TEE:</strong> <span id="attestation-reported-tcb-tee">N/A</span></p>
+                                <p><strong>Boot Loader:</strong> <span id="attestation-reported-tcb-bootloader">N/A</span></p>
+                                <p><strong>FMC:</strong> <span id="attestation-reported-tcb-fmc">N/A</span></p>
+                            </div>
+                        </details>
+
+                        <details class="mt-4 bg-purple-100 p-3 rounded-md border border-purple-300" id="platform-info">
+                            <summary class="font-semibold text-purple-800 text-base flex items-center space-x-2">
+                                <i data-lucide="server" class="w-5 h-5"></i>
+                                <span>Platform Info</span>
+                            </summary>
+                            <div class="mt-2 pl-4 text-gray-700 space-y-1 text-sm">
+                                <p><strong>SMT Enabled:</strong> <span id="attestation-platform-info-smt">N/A</span></p>
+                                <p><strong>TSME Enabled:</strong> <span id="attestation-platform-info-tsme">N/A</span></p>
+                                <p><strong>ECC Enabled:</strong> <span id="attestation-platform-info-ecc">N/A</span></p>
+                                <p><strong>RAPL Disabled:</strong> <span id="attestation-platform-info-rapl">N/A</span></p>
+                                <p><strong>Ciphertext Hiding Enabled:</strong> <span id="attestation-platform-info-ch">N/A</span></p>
+                                <p><strong>Alias Check Complete:</strong> <span id="attestation-platform-info-alias-check">N/A</span></p>
+                                <p><strong>SEV-TIO Enabled:</strong> <span id="attestation-platform-info-sev-tio">N/A</span></p>
+                            </div>
+                        </details>
+
+                        <div class="mt-6" id="key-properties">
+                            <h4 class="text-lg font-semibold text-purple-800 mb-3">Key Properties</h4>
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full bg-purple-50 rounded-lg border border-purple-200" id="key-properties-table">
+                                    <tbody>
+                                        <tr class="border-b border-purple-200 last:border-b-0">
+                                            <td class="px-4 py-2 font-medium w-1/3">Attestation Backend</td>
+                                            <td class="px-4 py-2 break-all text-sm" id="attestation-backend">N/A</td>
+                                        </tr>
+                                        <tr class="border-b border-purple-200 last:border-b-0 hidden" id="tr-vmpl">
+                                            <td class="px-4 py-2 font-medium w-1/3">VMPL Level</td>
+                                            <td class="px-4 py-2 break-all text-sm" id="attestation-vmpl">N/A</td>
+                                        </tr>
+                                        <tr class="border-b border-purple-200 last:border-b-0 hidden" id="tr-measurement">
+                                            <td class="px-4 py-2 font-medium w-1/3">Measurement</td>
+                                            <td class="px-4 py-2 break-all text-sm" id="attestation-measurement">N/A</td>
+                                        </tr>
+                                        <tr class="border-b border-purple-200 last:border-b-0 hidden" id="tr-chip-id">
+                                            <td class="px-4 py-2 font-medium w-1/3">Chip ID</td>
+                                            <td class="px-4 py-2 break-all text-sm" id="attestation-chip-id">N/A</td>
+                                        </tr>
+                                        <tr class="border-b border-purple-200 last:border-b-0">
+                                            <td class="px-4 py-2 font-medium w-1/3">
+                                                Package Hash
+                                                <a id="attestation-package-hash-link" href="#" target="_blank" class="text-blue-600 hover:underline ml-1"><i data-lucide="external-link" class="w-4 h-4 inline-block"></i></a>
+                                            </td>
+                                            <td class="px-4 py-2 break-all text-sm">
+                                                <span id="attestation-package-hash-display">N/A</span>
+                                                
+                                            </td>
+                                        </tr>
+                                        <tr class="border-b border-purple-200 last:border-b-0">
+                                            <td class="px-4 py-2 font-medium w-1/3">
+                                                OS Integrity Hash 
+                                                <a id="attestation-os-hash-link" href="#" target="_blank" class="text-blue-600 hover:underline ml-1"><i data-lucide="external-link" class="w-4 h-4 inline-block"></i></a>
+                                            </td>
+                                            <td class="px-4 py-2 break-all text-sm">
+                                                <span id="attestation-os-hash-display">N/A</span>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="mt-6" id="operator-certificate">
+                            <strong class="font-medium block mb-1">Operator Certificate (PEM)</strong>
+                            <textarea id="attestation-operator-cert" rows="5" class="w-full p-3 border border-gray-300 rounded-md bg-gray-100 text-sm font-mono resize-y" readonly>N/A</textarea>
+                            <button id="copy-operator-cert-button" class="mt-1 px-4 py-2 bg-gray-300 text-gray-800 rounded-md hover:bg-gray-400 transition duration-200 ease-in-out text-sm">
+                                <i data-lucide="copy" class="w-4 h-4 inline-block mr-1"></i> Copy
+                            </button>
+                            <span id="copy-operator-message" class="text-sm text-green-700 ml-2 hidden">Copied!</span>
+                        </div>
+
+                        <div class="mt-6" id="raw-document">
+                            <strong class="font-medium block mb-1">Raw Attestation Document</strong>
+                            <textarea id="attestation-raw-document" rows="5" class="w-full p-3 border border-gray-300 rounded-md bg-gray-100 text-sm font-mono resize-y" readonly>N/A</textarea>
+                        </div>
+                    </div>
+
+                    <div class="bg-blue-100 p-6 rounded-lg shadow-sm border border-blue-300">
+                        <h3 class="text-xl font-semibold text-blue-800 mb-4 flex items-center space-x-2">
+                            <i data-lucide="info" class="w-5 h-5"></i>
+                            <span>General Information</span>
+                        </h3>
+                        <div class="space-y-2 text-gray-700">
+                            <p><strong>Issuer:</strong> <span id="info-issuer">N/A</span></p>
+                            <p><strong>Subject:</strong> <span id="info-subject">N/A</span></p>
+                            <p><strong>Valid From:</strong> <span id="info-valid-from">N/A</span></p>
+                            <p><strong>Valid To:</strong> <span id="info-valid-to">N/A</span></p>
+                            <p><strong>Expires In:</strong> <span id="info-days-remaining" class="font-bold">N/A</span></p>
+                            <p><strong>Serial Number:</strong> <span id="info-serial">N/A</span></p>
+                        </div>
+                    </div>
+
+                    <div class="bg-green-100 p-6 rounded-lg shadow-sm border border-green-300">
+                        <h3 class="text-xl font-semibold text-green-800 mb-4 flex items-center space-x-2">
+                            <i data-lucide="globe" class="w-5 h-5"></i>
+                            <span>Domain Details</span>
+                        </h3>
+                        <div class="space-y-2 text-gray-700">
+                            <p><strong>Common Name (CN):</strong> <span id="domain-cn">N/A</span></p>
+                            <div>
+                                <strong class="block mb-1">Subject Alternative Names (SANs):</strong>
+                                <ul id="domain-sans" class="list-disc list-inside text-gray-700">
+                                    <li>N/A</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-yellow-100 p-6 rounded-lg shadow-sm border border-yellow-300">
+                        <h3 class="text-xl font-semibold text-yellow-800 mb-4 flex items-center space-x-2">
+                            <i data-lucide="settings" class="w-5 h-5"></i>
+                            <span>Cryptograpic Details</span>
+                        </h3>
+                        <div class="space-y-2 text-gray-700">
+                            <p><strong>Certificate Version:</strong> <span id="tech-version">N/A</span></p>
+                            <p><strong>Signature Algorithm:</strong> <span id="tech-signature-algo">N/A</span></p>
+                            <p><strong>Public Key Algorithm:</strong> <span id="tech-pubkey-algo">N/A</span></p>
+                            <p><strong>Public Key Algorithm Parameters:</strong> <span id="tech-pubkey-algo-param">N/A</span></p>
+                            <p><strong>Public Key Size:</strong> <span id="tech-pubkey-size">N/A</span></p>
+                            <p><strong>Public Key:</strong>
+                            <textarea id="tech-pubkey" rows="1" class="w-full p-3 border border-gray-300 rounded-md bg-gray-50 text-sm font-mono resize-y" readonly="">N/A</textarea>
+                        </div>
+                    </div>
+
+                    <div class="bg-gray-100 p-6 rounded-lg shadow-sm border border-gray-300">
+                        <h3 class="text-xl font-semibold text-gray-800 mb-4 flex items-center space-x-2">
+                            <div class="flex items-center space-x-2">
+                                <i data-lucide="file-text" class="w-5 h-5"></i>
+                                <span>Raw Certificate (PEM)</span>
+                            </div>
+                            <a id="raw-certificate-link" href="#" target="_blank" class="text-blue-600 hover:underline ml-1 flex items-center">
+                                <i data-lucide="external-link" class="w-4 h-4"></i>
+                            </a>
+                        </h3>
+                        <textarea id="raw-certificate" rows="10" class="w-full p-3 border border-gray-300 rounded-md bg-gray-50 text-sm font-mono resize-y" readonly>N/A</textarea>
+                        <button id="copy-raw-cert-button" class="mt-3 px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition duration-200 ease-in-out text-sm">
+                            <i data-lucide="copy" class="w-4 h-4 inline-block mr-1"></i> Copy to Clipboard
+                        </button>
+                        <span id="copy-message" class="text-sm text-green-600 ml-2 hidden">Copied!</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-8 text-center flex items-center justify-center space-x-4">
+                <button id="back-to-table-button" class="px-8 py-3 bg-blue-500 text-white font-semibold rounded-lg shadow-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200 ease-in-out flex items-center justify-center space-x-2 hidden">
+                    <i data-lucide="file-text" class="w-4 h-4"></i>
+                    <span>Back to all certificates</span>
+                </button>
+                <button id="lookup-another-button" class="px-8 py-3 bg-blue-500 text-white font-semibold rounded-lg shadow-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition duration-200 ease-in-out flex items-center justify-center space-x-2">
+                    <i data-lucide="redo" class="w-5 h-5"></i>
+                    <span>Lookup Another Domain</span>
+                </button>
+            </div>
+        </section>
+    </div>
+
+    <script src="./script.js"></script>
+</body>
+</html>

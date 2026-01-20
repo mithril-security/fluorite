@@ -1,0 +1,455 @@
+name: Testing Pipeline for GCP
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  VERSION: 0.1.0
+  ZONE_NAME: test.mithrilsecurity.io
+
+jobs:
+  test:
+    runs-on: fluorite-runner
+    timeout-minutes: 60
+    strategy:
+      # Use fail-fast: false so if one test fails, the other continues
+      fail-fast: false
+      matrix:
+        include:
+          - job_id: test-nginx-self-ca
+            package: nginx-self-ca
+            include_ca: false
+            zone: europe-west10-a
+            machine_type: n2-standard-8
+            attestation_backend: GcpShieldedVM
+            gpu: false
+
+          - job_id: test-nginx
+            package: nginx
+            include_ca: true
+            zone: europe-west10-a
+            machine_type: n2-standard-8
+            attestation_backend: GcpShieldedVM
+            gpu: false
+
+          - job_id: test-ray-tl
+            package: ray-tl
+            include_ca: true
+            zone: us-central1-a
+            machine_type: a2-ultragpu-1g
+            attestation_backend: GcpShieldedVM
+            gpu: true
+
+    env:
+      PACKAGE: ${{ matrix.package }}
+      JOB_NAME: gcp-${{ matrix.job_id }}
+      GCP_ZONE: ${{ matrix.zone }}
+      GCP_MACHINE_TYPE: ${{ matrix.machine_type }}
+      ATTESTATION_BACKEND: ${{ matrix.attestation_backend }}
+      AZURE_CONFIG_DIR: /home/ubuntu/.azure-gha-${{ github.run_id }}-${{ github.run_attempt }}-${{ strategy.job-index }}
+
+    steps:
+      - name: Set Hostname and create Job dir
+        run: |
+          echo "HOSTNAME=${{ github.run_id }}-${{ github.run_attempt }}-${{ env.JOB_NAME }}.${{ env.ZONE_NAME }}" >> $GITHUB_ENV
+          VERSION_FORMATTED="${VERSION//./-}"
+
+          if [ "${{ matrix.gpu }}" = "false" ]; then
+            GCP_FLUORITE_OS_IMAGE="fluorite-os-${VERSION_FORMATTED}"
+          else
+            GCP_FLUORITE_OS_IMAGE="fluorite-os-with-gpu-${VERSION_FORMATTED}"
+          fi
+
+          echo "GCP_FLUORITE_OS_IMAGE=$GCP_FLUORITE_OS_IMAGE" >> $GITHUB_ENV
+
+          GCP_NOTARIZER_IMAGE="gcp-notarizer-os-${VERSION_FORMATTED}"
+          echo "GCP_NOTARIZER_IMAGE=$GCP_NOTARIZER_IMAGE" >> $GITHUB_ENV
+
+          mkdir -p "${{ github.workspace }}/${{ env.JOB_NAME }}"
+          echo "DIR=${{ github.workspace }}/${{ env.JOB_NAME }}" >> $GITHUB_ENV
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get provisioning bundle
+        run: |
+          mkdir -p ${{ env.DIR }}/packages
+          
+          PACKAGE_NAME="zarf-package-${{ env.PACKAGE }}-amd64-0.1.0.tar.zst"
+          PACKAGE_URL="https://storage.googleapis.com/fluorite/provisioning-bundles/${{ env.PACKAGE }}/${{ env.VERSION }}/$PACKAGE_NAME"
+          PACKAGE_PATH="${{ env.DIR }}/packages/$PACKAGE_NAME"
+          
+          curl $PACKAGE_URL -o $PACKAGE_PATH
+
+          echo "PACKAGE_PATH=$PACKAGE_PATH" >> $GITHUB_ENV
+
+          # Compute the hash of the provisioning package
+          BUNDLE_HASH=$(sha256sum $PACKAGE_PATH | awk '{print $1}')
+          echo "BUNDLE_HASH=$BUNDLE_HASH" >> $GITHUB_ENV
+
+          echo "PACKAGE_URL=$PACKAGE_URL" >> $GITHUB_ENV
+          
+      - name: Get pre-built binaries
+        run: |
+          mkdir -p ${{ env.DIR }}/binaries
+          curl https://storage.googleapis.com/fluorite/${{ env.VERSION }}/binaries/client -o ${{ env.DIR }}/binaries/client
+          curl https://storage.googleapis.com/fluorite/${{ env.VERSION }}/binaries/fluorite -o ${{ env.DIR }}/binaries/fluorite
+          
+          chmod +x ${{ env.DIR }}/binaries/*
+
+      - name: Generate Operator Certificates
+        run: |
+          ${{ env.DIR }}/binaries/fluorite generate-certificates --force --cert-directory-path ${{ env.DIR }}/certificates
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_SA_EMAIL }}
+
+      - name: 'Set up Cloud SDK'
+        uses: 'google-github-actions/setup-gcloud@v3'
+        with:
+          version: '>= 363.0.0'
+          cache: true
+
+      - name: Set GCP project and label
+        run: |
+          # Use existing fluorite-testing project
+          echo "GCP_PROJECT=fluorite-testing" >> $GITHUB_ENV
+          echo "GCP_NETWORK=default" >> $GITHUB_ENV
+          echo "GCP_SUBNET=default" >> $GITHUB_ENV
+
+          # Generate a unique label for this test run (must be lowercase, start with letter)
+          # Format: gha-<run_id>-<run_attempt>-<job_index>
+          GCP_LABEL="gha-${{ github.run_id }}-${{ github.run_attempt }}-${{ strategy.job-index }}"
+          echo "GCP_LABEL=$GCP_LABEL" >> $GITHUB_ENV
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Inject variables in the job environment
+        run: |
+          # Get the latest FluoriteOS image published on Azure Image Gallery and it's PCR4 Golden Value
+          if [ "${{ matrix.gpu }}" = "false" ]; then
+            MEASUREMENT_URL="https://storage.googleapis.com/fluorite/${{ env.VERSION }}/fluorite-os/cloud-vtpm/os-measurement.json"
+            OS_DISK_URL="https://storage.googleapis.com/fluorite/${{ env.VERSION }}/fluorite-os/cloud-vtpm/disk.raw"
+          else
+            MEASUREMENT_URL="https://storage.googleapis.com/fluorite/${{ env.VERSION }}/fluorite-os/cloud-vtpm-with-gpu/os-measurement.json"
+            OS_DISK_URL="https://storage.googleapis.com/fluorite/${{ env.VERSION }}/fluorite-os/cloud-vtpm-with-gpu/disk.raw"
+          fi
+          OS_MEASUREMENT=$(curl $MEASUREMENT_URL | jq -r .fluoriteos_pcr4)
+          echo "OS_MEASUREMENT=$OS_MEASUREMENT" >> $GITHUB_ENV
+          echo "OS_DISK_URL=$OS_DISK_URL" >> $GITHUB_ENV
+
+          PLATFORM_MEASUREMENTS_PATH="./measurements/measurements_gcp_shielded_vm.json"
+          echo "PLATFORM_MEASUREMENTS_PATH=$PLATFORM_MEASUREMENTS_PATH" >> $GITHUB_ENV
+
+          OPERATOR_CERTIFICATE_PATH="${{ env.DIR }}/certificates/cert.pem"
+          echo "OPERATOR_CERTIFICATE_PATH=$OPERATOR_CERTIFICATE_PATH" >> $GITHUB_ENV
+
+          OPERATOR_PRIVATE_KEY_PATH="${{ env.DIR }}/certificates/key.pem"
+          echo "OPERATOR_PRIVATE_KEY_PATH=$OPERATOR_PRIVATE_KEY_PATH" >> $GITHUB_ENV
+
+          DEPLOYMENT_CONFIG_PATH="${{ env.DIR }}/deployment_config.yaml"
+          echo "DEPLOYMENT_CONFIG_PATH=$DEPLOYMENT_CONFIG_PATH" >> $GITHUB_ENV
+
+          if [ "${{ matrix.include_ca }}" = "true" ]; then
+            # Generate the password for the Attestation Transparency Service
+            ATS_PASSWORD=$(openssl rand -hex 32)
+            echo "::add-mask::$ATS_PASSWORD"        
+            echo "ATS_PASSWORD=$ATS_PASSWORD" >> $GITHUB_ENV
+
+            # Encode the operator certificate for the next jobs
+            OPERATOR_CERTIFICATE_B64=$(base64 -w0 $OPERATOR_CERTIFICATE_PATH)
+            echo "OPERATOR_CERTIFICATE_B64=$OPERATOR_CERTIFICATE_B64" >> $GITHUB_ENV
+
+            ATS_ENDPOINT="https://ats.${{ env.HOSTNAME }}/verify_csr"
+            echo "ATS_ENDPOINT=$ATS_ENDPOINT" >> $GITHUB_ENV
+
+            ATS_CONTAINER_APP_NAME="ats-app-${{ env.JOB_NAME }}"
+            echo "ATS_CONTAINER_APP_NAME=$ATS_CONTAINER_APP_NAME" >> $GITHUB_ENV
+
+            ATS_CONTAINER_APP_ENVIRONMENT="ats-env-${{ env.JOB_NAME }}"
+            echo "ATS_CONTAINER_APP_ENVIRONMENT=$ATS_CONTAINER_APP_ENVIRONMENT" >> $GITHUB_ENV
+
+            DOMAIN_MONITOR_CONTAINER_APP_NAME="dom-mon-app-${{ env.JOB_NAME }}"
+            echo "DOMAIN_MONITOR_CONTAINER_APP_NAME=$DOMAIN_MONITOR_CONTAINER_APP_NAME" >> $GITHUB_ENV
+
+            DOMAIN_MONITOR_CONTAINER_APP_ENVIRONMENT="dom-mon-env-${{ env.JOB_NAME }}"
+            echo "DOMAIN_MONITOR_CONTAINER_APP_ENVIRONMENT=$DOMAIN_MONITOR_CONTAINER_APP_ENVIRONMENT" >> $GITHUB_ENV
+
+            BLOB_STORAGE_URL="https://proofs.demo.mithrilsecurity.io/"
+            echo "BLOB_STORAGE_URL=$BLOB_STORAGE_URL" >> $GITHUB_ENV
+          fi
+
+          RESOURCE_GROUP="ivan-fli-multinode"
+          echo "RESOURCE_GROUP=$RESOURCE_GROUP" >> $GITHUB_ENV
+
+      - name: Create deployment config file
+        run: |
+          cat << EOF > ${{ env.DEPLOYMENT_CONFIG_PATH }}
+          package:
+            deploy:
+              set:
+          EOF
+
+          yq -iy '.package.deploy.set.HOSTNAME = "${{ env.HOSTNAME }}"' ${{ env.DEPLOYMENT_CONFIG_PATH }}
+          if [ "${{ matrix.include_ca }}" = "true" ]; then
+            yq -iy '.package.deploy.set.ATS_PASSWORD = "${{ env.ATS_PASSWORD }}"' ${{ env.DEPLOYMENT_CONFIG_PATH }}
+            yq -iy '.package.deploy.set.PUBLIC_CA_KEY = "${{ secrets.PUBLIC_CA_KEY }}"' ${{ env.DEPLOYMENT_CONFIG_PATH }}
+            yq -iy '.package.deploy.set.PUBLIC_CA_EMAIL = "${{ secrets.PUBLIC_CA_EMAIL }}"' ${{ env.DEPLOYMENT_CONFIG_PATH }}
+            yq -iy '.package.deploy.set.ATS_ENDPOINT = "${{ env.ATS_ENDPOINT }}"' ${{ env.DEPLOYMENT_CONFIG_PATH }}
+          fi
+
+          if [ "${{ matrix.gpu }}" = "true" ]; then
+            # NODES: 2. We have 1 control plane node and one agent node
+            yq -iy '.package.deploy.set.NODES = "2"' ${{ env.DEPLOYMENT_CONFIG_PATH }}
+          fi
+
+      - name: Build and deploy Attestation Transparency Service Container App
+        if: matrix.include_ca == true
+        uses: azure/container-apps-deploy-action@v2
+        with:
+          imageToDeploy: fluorite.azurecr.io/attestation-transparency-service:${{ env.VERSION }}
+          containerAppName: ${{ env.ATS_CONTAINER_APP_NAME }}
+          containerAppEnvironment: ${{ env.ATS_CONTAINER_APP_ENVIRONMENT }}
+          resourceGroup: ${{ env.RESOURCE_GROUP }}
+          location: francecentral
+          ingress: external
+          targetPort: 8000
+          disableTelemetry: true
+
+      - name: Build and deploy domain-monitor Container App
+        if: matrix.include_ca == true
+        uses: azure/container-apps-deploy-action@v2
+        with:
+          imageToDeploy: fluorite.azurecr.io/domain-monitor:${{ env.VERSION }}
+          containerAppName: ${{ env.DOMAIN_MONITOR_CONTAINER_APP_NAME }}
+          containerAppEnvironment: ${{ env.DOMAIN_MONITOR_CONTAINER_APP_ENVIRONMENT }}
+          resourceGroup: ${{ env.RESOURCE_GROUP }}
+          location: francecentral
+          ingress: external
+          targetPort: 8000
+          disableTelemetry: true
+
+      - name: Setup attestation-transparency and domain-monitor services
+        if: matrix.include_ca == true
+        uses: azure/cli@v2
+        with:
+          azcliversion: latest
+          inlineScript: |
+            set -euo pipefail
+
+            # Shared
+            RESOURCE_GROUP="${{ env.RESOURCE_GROUP }}"
+            ZONE_NAME="${{ env.ZONE_NAME }}"
+
+            # Setup attestation-transparency
+            CONTAINER_APP="${{ env.ATS_CONTAINER_APP_NAME }}"
+            CONTAINER_APP_ENV="${{ env.ATS_CONTAINER_APP_ENVIRONMENT }}"
+            A_RECORD_NAME="ats.${{ github.run_id }}-${{ github.run_attempt }}-${{ env.JOB_NAME }}"
+
+            # Assign attestation-transparency-service-identity to Container App
+            # This is needed because the container needs permission to write to Azure Blob Storage
+            az containerapp identity assign \
+              --name $CONTAINER_APP \
+              --resource-group $RESOURCE_GROUP \
+              --user-assigned attestation-transparency-service-identity
+
+            # Set environment variables
+
+            # Set environment variables
+            az containerapp update \
+              --name $CONTAINER_APP \
+              --resource-group $RESOURCE_GROUP \
+              --set-env-vars \
+              PORT="8000" \
+              ATTESTATION_BACKEND="${{ env.ATTESTATION_BACKEND }}" \
+              PASSWORD="${{ env.ATS_PASSWORD }}" \
+              OPERATOR_CERTIFICATE_B64="${{ env.OPERATOR_CERTIFICATE_B64 }}" \
+              BUNDLE_HASH="${{ env.BUNDLE_HASH }}" \
+              OS_MEASUREMENT="${{ env.OS_MEASUREMENT }}" \
+              RESOURCE_GROUP_NAME="${{ env.RESOURCE_GROUP }}" \
+              ATTESTATION_STORAGE_ACCOUNT_NAME="attestationproofs" \
+              STORAGE_URL="${{ env.BLOB_STORAGE_URL }}" \
+              AZURE_SUBSCRIPTION_ID="${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
+              IDENTITY_RESOURCE_ID="/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ env.RESOURCE_GROUP }}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/attestation-transparency-service-identity" \
+              PLATFORM_MEASUREMENTS_PATH="${{ env.PLATFORM_MEASUREMENTS_PATH }}" 
+
+            ./scripts/setup-containerapp.sh $RESOURCE_GROUP $CONTAINER_APP $CONTAINER_APP_ENV $ZONE_NAME $A_RECORD_NAME & 
+
+            # Setup domain-monitor
+            CONTAINER_APP="${{ env.DOMAIN_MONITOR_CONTAINER_APP_NAME }}"
+            CONTAINER_APP_ENV="${{ env.DOMAIN_MONITOR_CONTAINER_APP_ENVIRONMENT }}"
+            A_RECORD_NAME="domainmonitor.${{ env.JOB_NAME }}"
+
+            # Set environment variables
+            az containerapp update \
+              --name $CONTAINER_APP \
+              --resource-group $RESOURCE_GROUP \
+              --set-env-vars \
+              PORT="8000" \
+              ATTESTATION_BACKEND="${{ env.ATTESTATION_BACKEND }}" \
+              OPERATOR_CERTIFICATE_B64="${{ env.OPERATOR_CERTIFICATE_B64 }}" \
+              BUNDLE_HASH="${{ env.BUNDLE_HASH }}" \
+              OS_MEASUREMENT="${{ env.OS_MEASUREMENT }}" \
+              STORAGE_URL="${{ env.BLOB_STORAGE_URL }}" \
+              PLATFORM_MEASUREMENTS_PATH="${{ env.PLATFORM_MEASUREMENTS_PATH }}" \
+              OS_DISK_URL="${{ env.OS_DISK_URL }}" \
+              PROVISIONING_PACKAGE_URL="${{ env.PACKAGE_URL }}" 
+              
+
+            ./scripts/setup-containerapp.sh $RESOURCE_GROUP $CONTAINER_APP $CONTAINER_APP_ENV $ZONE_NAME $A_RECORD_NAME & 
+
+            wait
+
+      - name: Spawn VMs for test
+        working-directory: operator/fluorite-gcp-cli/
+        run: |
+          # Install the local version on purpose
+          uv tool install .
+          fluorite-gcp \
+            --project ${{ env.GCP_PROJECT }} \
+            --zone ${{ env.GCP_ZONE }} \
+            --network ${{ env.GCP_NETWORK }} \
+            --subnet ${{ env.GCP_SUBNET }} \
+            --machine-type ${{ env.GCP_MACHINE_TYPE }} \
+            --fluorite-os-image ${{ env.GCP_FLUORITE_OS_IMAGE }} \
+            --notarizer-image ${{ env.GCP_NOTARIZER_IMAGE }} \
+            --operator-cert-path ${{ env.OPERATOR_CERTIFICATE_PATH }} \
+            --operator-key-path ${{ env.OPERATOR_PRIVATE_KEY_PATH }} \
+            --num-servers 1 \
+            --num-agents 1 \
+            --output-path ${{ env.DIR }}/cluster.json \
+            --label ${{ env.GCP_LABEL }}
+
+      - name: Create A record for master VM
+        uses: azure/cli@v2
+        with:
+          azcliversion: latest
+          inlineScript: |
+            RESOURCE_GROUP="${{ env.RESOURCE_GROUP }}"
+            A_RECORD_NAME="${{ github.run_id }}-${{ github.run_attempt }}-${{ env.JOB_NAME }}"
+            MASTER_IP=$(jq -r '.servers[0].address' ${{ env.DIR }}/cluster.json)
+
+            # Add the A record for the master vm
+            # TTL set to 10 minutes
+            az network dns record-set a add-record \
+              --resource-group $RESOURCE_GROUP \
+              --zone-name ${{ env.ZONE_NAME }} \
+              --record-set-name $A_RECORD_NAME \
+              --ipv4-address $MASTER_IP  \
+              --ttl 600
+
+            echo "MASTER_IP=$MASTER_IP" >> $GITHUB_ENV
+
+      - name: Provision VMs
+        run: |
+          ${{ env.DIR }}/binaries/fluorite deploy \
+            --zarf-package-path ${{ env.PACKAGE_PATH }} \
+            --os-measurement ${{ env.OS_MEASUREMENT }} \
+            --platform-measurements-path ${{ env.PLATFORM_MEASUREMENTS_PATH }} \
+            --operator-cert-path ${{ env.OPERATOR_CERTIFICATE_PATH }} \
+            --operator-private-key-path ${{ env.OPERATOR_PRIVATE_KEY_PATH }} \
+            --cluster-file-path ${{ env.DIR }}/cluster.json \
+            --deployment-config-path ${{ env.DEPLOYMENT_CONFIG_PATH }} \
+            --attestation-backend ${{ env.ATTESTATION_BACKEND }}
+
+      - name: Wait for DNS propagation
+        run: |
+          # Check every 30 seconds for 10 minutes
+          MAX_RETRIES=20
+          COUNT=0
+
+          echo "Checking if ${{ env.HOSTNAME }} points to ${{ env.MASTER_IP }}..."
+
+          while [ $COUNT -lt $MAX_RETRIES ]; do
+              CURRENT_IP=$(dig +short A ${{ env.HOSTNAME }})
+
+              if [ "$CURRENT_IP" == "${{ env.MASTER_IP }}" ]; then
+                  exit 0
+              fi
+
+              echo "Retrying... (Attempt $((COUNT+1))/$MAX_RETRIES - Found: $CURRENT_IP)"
+              sleep 30
+              COUNT=$((COUNT+1))
+          done
+
+          exit 1
+
+      - name: Run the client app
+        run: |
+          # Note: BLOB_STORAGE_URL will be empty when include_ca==false
+          CA_FLAG=$([[ "${{ matrix.include_ca }}" == "true" ]] && echo "--blob-storage-url ${{ env.BLOB_STORAGE_URL }}" || echo "")
+
+          ${{ env.DIR }}/binaries/client \
+            --master-url "https://${{ env.HOSTNAME }}" \
+            --operator-certificate-path ${{ env.OPERATOR_CERTIFICATE_PATH }} \
+            --bundle-hash ${{ env.BUNDLE_HASH }} \
+            --os-measurement ${{ env.OS_MEASUREMENT }} \
+            --platform-measurements-path ${{ env.PLATFORM_MEASUREMENTS_PATH }}  \
+            --attestation-backend ${{ env.ATTESTATION_BACKEND }} \
+            $CA_FLAG
+
+      - name: Cleanup GCP resources
+        if: always()
+        run: |
+          # Delete all GCP resources with the test label
+          PROJECT="${{ env.GCP_PROJECT }}"
+          LABEL="${{ env.GCP_LABEL }}"
+          ZONE="${{ env.GCP_ZONE }}"
+
+          echo "Cleaning up GCP resources with label: $LABEL"
+
+          # Delete VMs with the label
+          echo "Deleting VMs with the label..."
+          gcloud compute instances list --project=$PROJECT --filter="labels.${LABEL}=true" --format="value(name,zone)" | \
+          while read NAME VM_ZONE; do
+            if [ -n "$NAME" ]; then
+              echo "  Deleting VM: $NAME in $VM_ZONE"
+              gcloud compute instances delete "$NAME" --project=$PROJECT --zone="$VM_ZONE" --quiet || true
+            fi
+          done
+
+          echo "Deleting images with the label..."
+          for IMAGE in $(gcloud compute images list --project=$PROJECT --filter="labels.${LABEL}=true" --format="value(name)"); do
+            echo "  Deleting image: $IMAGE"
+            gcloud compute images delete "$IMAGE" --project=$PROJECT --quiet
+          done
+
+          # Delete firewall rules by name pattern (firewall rules don't support labels)
+          echo "Deleting firewall rules..."
+          for RULE in $(gcloud compute firewall-rules list --project=$PROJECT --filter="name~${LABEL}" --format="value(name)"); do
+            echo "  Deleting firewall rule: $RULE"
+            gcloud compute firewall-rules delete "$RULE" --project=$PROJECT --quiet || true
+          done
+
+          # Note: We don't delete images as they are shared across test runs
+          echo "Cleanup complete!"
+
+      - name: Delete DNS A record
+        if: always()
+        uses: azure/cli@v2
+        with:
+          azcliversion: latest
+          inlineScript: |
+            az network dns record-set a delete \
+              --resource-group ${{ env.RESOURCE_GROUP }} \
+              --zone-name ${{ env.ZONE_NAME }} \
+              --name ${{ github.run_id }}-${{ github.run_attempt }}-${{ env.JOB_NAME }} \
+              --yes || true

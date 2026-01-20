@@ -1,0 +1,17 @@
+[project]
+name = "azure-disk-upload"
+version = "0.1.0"
+description = "Utility that given an raw disk image, uploads it to Azure Cloud Platform and creates an VM image version that can be used to spawn VMs with that disk."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "azure-identity==1.25.1",
+    "azure-mgmt-compute==37.1.0",
+    "azure-mgmt-resource==24.0.0",
+    "azure-mgmt-storage==24.0.0",
+    "azure-storage-blob==12.28.0",
+    "packaging==25.0",
+]
+
+[project.scripts]
+azure-disk-upload = "main:cli"

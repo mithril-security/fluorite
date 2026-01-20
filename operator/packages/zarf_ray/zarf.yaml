@@ -1,0 +1,89 @@
+kind: ZarfPackageConfig
+metadata:
+  name: ray
+  version: 0.1.0
+  description: |
+    "A Zarf Package for deploying Ray on Kubernetes with LibreChat."
+
+variables:
+  - name: HUGGING_FACE_KEY
+    sensitive: true
+  # tensor_parallel_size
+  - name: GPUS_PER_NODE 
+    default: "1"
+    pattern: "^[0-9]+$"
+  # pipeline_parallel_size
+  - name: NODES
+    default: "1"
+    pattern: "^[0-9]+$"
+
+components:
+  - name: gpu-attestation-check-job
+    required: true
+    manifests:
+      - name: gpu-attestation-check
+        namespace: attestation
+        files:
+          - attestation-deamon-set.yaml
+    images:
+      - gpu-attestation-checker:latest
+
+  - name: gpu-operator
+    required: true
+    import:
+      path: ../zarf_ray_tl
+
+  - name: cert-manager
+    required: true
+    import:
+      path: ../skeleton
+
+  - name: google-private-certificate-authority
+    required: true
+    import:
+      path: ../skeleton
+
+  - name: certificate-policy-secrets
+    required: true
+    import:
+      path: ../skeleton
+
+  - name: approver-plugin
+    required: true
+    import:
+      path: ../skeleton
+
+  - name: certificate-policy
+    required: true
+    import:
+      path: ../skeleton
+
+  - name: ray
+    required: true
+    import:
+      path: ../zarf_ray_tl
+
+  - name: traefik-crd
+    required: true
+    import:
+      path: ../skeleton
+
+  - name: traefik
+    required: true
+    import:
+      path: ../skeleton
+
+  - name: ray-service
+    required: true
+    import:
+      path: ../zarf_ray_tl
+
+  - name: librechat
+    required: true
+    import:
+      path: ../zarf_ray_tl
+
+  - name: chat-ingress
+    required: true
+    import:
+      path: ../zarf_ray_tl

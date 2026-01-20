@@ -1,0 +1,36 @@
+[package]
+name = "fluorite-cli"
+version = "0.1.0"
+edition = "2024"
+authors = ["Mithril Security Contributors"]
+
+[dependencies]
+anyhow = "1.0.96"
+reqwest = { version = "0.12.9", features = ["rustls-tls", "multipart", "json"] }
+rustls-pki-types = "1.10.0"
+tokio = { version = "1.45.0", features = ["full"] }
+serde_json = "1.0.139"
+clap = { version = "4.5.37", features = ["derive"] }
+rustls = { version = "0.23.23", features = ["ring"] }
+rustls-pemfile = "2.1.2"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+log = "0.4.27"
+cms = "0.2.3"
+x509-parser = "0.18.0"
+rustls-webpki = "0.103.6"
+webpki-roots = "0.26.8"
+der = { version = "0.7.9", features = ["alloc", "oid", "pem", "std"] }
+const-oid = { version = "0.9.6", features = ["db"] }
+base64 = "0.22.1"
+sha256 = "1.6.0"
+provisioning-structs = { path = "../../libraries/provisioning-structs" }
+attested-server-verifier = { path = "../../libraries/attested-server-verifier" }
+tpm-quote = { path = "../../libraries/attestation/tpm-quote" }
+serde_yaml = "0.9.34"
+# Dependencies for certificate generation
+rcgen = "0.14.6"
+inquire = "0.9.1"
+
+[[bin]]
+name = "fluorite"
+path = "src/main.rs"

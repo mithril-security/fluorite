@@ -1,0 +1,24 @@
+[package]
+name = "attested-server-verifier"
+version = "0.1.0"
+edition = "2024"
+authors = ["Mithril Security Contributors"]
+
+[dependencies]
+rustls = { version = "0.23.23", features = ["ring"] }
+x509-parser = { version = "0.18.0", features = ["verify"] }
+attestation = { path = "../attestation/attestation", features = ["tss-esapi"] }
+tpm-quote = { path = "../attestation/tpm-quote" }
+provisioning-structs = { path = "../provisioning-structs", features = ["validate-attestation-documents"] }
+anyhow = "1.0.97"
+ref-cast = "1.0.24"
+log = "0.4.27"
+dryoc = "0.7.0"
+sha2 = "0.10.9"
+hex = "0.4.3"
+reqwest = "0.12.20"
+tokio = { version = "1.45.0", features = ["full"] }
+serde_json = "1.0.140"
+base64 = "0.22.1"
+rustls-native-certs = "0.8.1"
+env_logger = "0.11.3"

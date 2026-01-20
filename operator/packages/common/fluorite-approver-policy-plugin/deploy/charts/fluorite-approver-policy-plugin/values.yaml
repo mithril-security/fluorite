@@ -1,0 +1,24 @@
+app:
+  rbac:
+    namespaced: []
+    cluster: []
+# -- cert-manager-approver-policy dependency options.
+cert-manager-approver-policy:
+  image:
+    repository: fluorite-approver-policy-plugin
+    tag: latest
+
+  app:
+    extraArgs:
+      - --log-level=5
+      - --attestation-transparency-service-endpoint=###ZARF_VAR_ATS_ENDPOINT###
+      - --attestation-transparency-service-endpoint-password=###ZARF_VAR_ATS_PASSWORD###
+
+  volumes:
+    - name: my-volume
+      secret:
+        secretName: plugin-secrets
+  volumeMounts:
+    - name: my-volume
+      mountPath: /etc/approver-policy/secrets
+      readOnly: true

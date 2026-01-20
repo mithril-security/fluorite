@@ -1,0 +1,53 @@
+kind: ZarfPackageConfig
+metadata:
+  name: nginx
+  version: 0.1.0
+  description: |
+    "A Zarf Package that deploys nginx on my cluster!"
+
+components:
+  - name: traefik-crd
+    required: true
+    import:
+      path: ../skeleton
+
+  - name: traefik
+    required: true
+    import:
+      path: ../skeleton
+
+  - name: cert-manager
+    required: true
+    import:
+      path: ../skeleton
+
+  - name: google-private-certificate-authority
+    required: true
+    import:
+      path: ../skeleton
+
+  - name: certificate-policy-secrets
+    required: true
+    import:
+      path: ../skeleton
+
+  - name: approver-plugin
+    required: true
+    import:
+      path: ../skeleton
+
+  - name: certificate-policy
+    required: true
+    import:
+      path: ../skeleton
+
+  - name: nginx-deployment
+    required: true
+    manifests:
+      - name: nginx-deployment
+        namespace: app
+        files:
+          - nginx-deployment.yaml
+          - nginx-ingress.yaml
+    images:
+      - docker.io/library/nginx:1.29.3

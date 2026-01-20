@@ -1,0 +1,23 @@
+#!/bin/bash
+
+echo "Removing Systemd GPT auto generator"
+rm -f $BUILDROOT/usr/lib/systemd/system-generators/systemd-gpt-auto-generator
+
+echo "Enabling gcp-shielded-vm-notarizer service"
+mkdir -p $BUILDROOT/etc/systemd/system/multi-user.target.wants
+ln -sf /etc/systemd/system/gcp-shielded-vm-notarizer.service $BUILDROOT/etc/systemd/system/multi-user.target.wants/gcp-shielded-vm-notarizer.service
+
+echo "Enabling systemd-networkd"
+mkdir -p $BUILDROOT/etc/systemd/system/network-online.target.wants
+ln -sf /lib/systemd/system/systemd-networkd.service $BUILDROOT/etc/systemd/system/multi-user.target.wants/systemd-networkd.service
+ln -sf /lib/systemd/system/systemd-networkd-wait-online.service $BUILDROOT/etc/systemd/system/network-online.target.wants/systemd-networkd-wait-online.service
+
+echo "Enabling systemd-resolved"
+ln -sf /lib/systemd/system/systemd-resolved.service $BUILDROOT/etc/systemd/system/multi-user.target.wants/systemd-resolved.service
+
+# Uncomment the following and add your ssh key, serial console debugging is tricky, ssh is the preffered debugging method
+# echo "adding your ssh key for debug images"
+# mkdir $BUILDROOT/root/.ssh/
+# mkdir $BUILDROOT/root/.ssh/authorized_keys
+# echo "<your ssh pubkey>" >> $BUILDROOT/root/.ssh/authorized_keys/id_ed25519.pub
+# sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/g' $BUILDROOT/etc/ssh/sshd_config

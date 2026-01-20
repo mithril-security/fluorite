@@ -1,0 +1,13 @@
+[project]
+name = "render-template"
+version = "0.1.0"
+description = ""
+authors = [{ name = "Mithril Security Contributors" }]
+requires-python = ">=3.12"
+dependencies = [
+    "jinja2>=3.1.2",
+    "pyyaml>=6.0.2",
+]
+
+[project.scripts]
+render_template = "render_template.__main__:main"

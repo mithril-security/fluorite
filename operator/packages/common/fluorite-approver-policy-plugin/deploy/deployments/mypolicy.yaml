@@ -1,0 +1,101 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: mypolicy
+rules:
+  - apiGroups:
+      - policy.cert-manager.io
+    resourceNames:
+      - mypolicy
+    resources:
+      - certificaterequestpolicies
+    verbs:
+      - use
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: mypolicy
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: mypolicy
+subjects:
+  - kind: ServiceAccount
+    name: cert-manager
+    namespace: cert-manager
+---
+apiVersion: policy.cert-manager.io/v1alpha1
+kind: CertificateRequestPolicy
+metadata:
+  name: mypolicy
+spec:
+  allowed:
+    commonName:
+      value: "*"
+    dnsNames:
+      values:
+        - "*"
+    emailAddresses:
+      values:
+        - "*"
+    ipAddresses:
+      values:
+        - "*"
+    isCA: true
+    subject:
+      countries:
+        values:
+          - "*"
+      localities:
+        values:
+          - "*"
+      organizationalUnits:
+        values:
+          - "*"
+      organizations:
+        values:
+          - "*"
+      postalCodes:
+        values:
+          - "*"
+      provinces:
+        values:
+          - "*"
+      serialNumber:
+        value: "*"
+      streetAddresses:
+        values:
+          - "*"
+    uris:
+      values:
+        - "*"
+    usages:
+      - server auth
+      - client auth
+      - signing
+      - digital signature
+      - content commitment
+      - key encipherment
+      - key agreement
+      - cert sign
+      - encipher only
+      - decipher only
+      - any
+      - code signing
+      - email protection
+      - s/mime
+      - ipsec end system
+      - ipsec tunnel
+      - ipsec user
+      - timestamping
+      - ocsp signing
+      - microsoft sgc
+      - netscape sgc
+  selector:
+    issuerRef:
+      kind: Issuer
+  plugins:
+    fluorite-approver-policy-plugin:
+      values:
+        ready: "true"

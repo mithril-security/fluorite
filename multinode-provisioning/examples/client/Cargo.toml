@@ -1,0 +1,18 @@
+[package]
+name = "client"
+version = "0.1.0"
+edition = "2024"
+authors = ["Mithril Security Contributors"]
+
+[dependencies]
+reqwest = { version = "0.12.14", features = ["rustls-tls","multipart","json","stream"] }
+anyhow = "1.0.96"
+rustls = { version = "0.23.23", features = ["ring"] }
+tokio = {version = "1.45.0", features = ["full"] }
+log = "0.4.27"
+clap = { version = "4.5.37", features = ["derive"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tpm-quote = { path = "../../../libraries/attestation/tpm-quote" }
+attested-server-verifier = {  path = "../../../libraries/attested-server-verifier"}
+provisioning-structs = { path = "../../../libraries/provisioning-structs" }
+hex = "0.4.3"

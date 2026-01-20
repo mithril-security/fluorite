@@ -1,0 +1,116 @@
+name: Release Provisioning Bundles
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  id-token: write # This is required for requesting the JWT
+  contents: write # This is required for actions/checkout, and for updating the release
+
+jobs:
+  # Determine which package to build based on the release tag
+  detect-package:
+    runs-on: ubuntu-latest
+    outputs:
+      package: ${{ steps.detect.outputs.package }}
+      earthly_target: ${{ steps.detect.outputs.earthly_target }}
+      artifact_name: ${{ steps.detect.outputs.artifact_name }}
+      version: ${{ steps.detect.outputs.version }}
+    steps:
+      - name: Detect package from tag
+        id: detect
+        run: |
+          TAG="${{ github.event.release.tag_name }}"
+          
+          if [[ "$TAG" == nginx-v* ]]; then
+            echo "package=nginx" >> $GITHUB_OUTPUT
+            echo "earthly_target=+zarf-nginx" >> $GITHUB_OUTPUT
+            echo "artifact_name=zarf-package-nginx-amd64-0.1.0.tar.zst" >> $GITHUB_OUTPUT
+            VERSION="${TAG#nginx-v}"
+          elif [[ "$TAG" == ray-v* ]]; then
+            echo "package=ray" >> $GITHUB_OUTPUT
+            echo "earthly_target=+zarf-ray" >> $GITHUB_OUTPUT
+            echo "artifact_name=zarf-package-ray-amd64-0.1.0.tar.zst" >> $GITHUB_OUTPUT
+            VERSION="${TAG#ray-v}"
+          elif [[ "$TAG" == ray-tl-v* ]]; then
+            echo "package=ray-tl" >> $GITHUB_OUTPUT
+            echo "earthly_target=+zarf-ray-tl" >> $GITHUB_OUTPUT
+            echo "artifact_name=zarf-package-ray-tl-amd64-0.1.0.tar.zst" >> $GITHUB_OUTPUT
+            VERSION="${TAG#ray-tl-v}"
+          elif [[ "$TAG" == nginx-self-ca-v* ]]; then
+            echo "package=nginx-self-ca" >> $GITHUB_OUTPUT
+            echo "earthly_target=+zarf-nginx-self-ca" >> $GITHUB_OUTPUT
+            echo "artifact_name=zarf-package-nginx-self-ca-amd64-0.1.0.tar.zst" >> $GITHUB_OUTPUT
+            VERSION="${TAG#nginx-self-ca-v}"
+          else
+            echo "package=" >> $GITHUB_OUTPUT
+            echo "earthly_target=" >> $GITHUB_OUTPUT
+            echo "artifact_name=" >> $GITHUB_OUTPUT
+            VERSION=""
+          fi
+          
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
+  release-package:
+    needs: detect-package
+    # Only run if a valid package tag was detected
+    if: needs.detect-package.outputs.package != ''
+    outputs:
+      digests: ${{ steps.hash.outputs.digests }}
+    runs-on: ubuntu-latest
+    environment: release
+    steps:
+      - name: Setup Earthly
+        uses: earthly/actions-setup@v1
+        with:
+          version: v0.8.16
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_SA_EMAIL }}
+
+      - name: "Set up Cloud SDK"
+        uses: "google-github-actions/setup-gcloud@v3"
+        with:
+          version: ">= 363.0.0"
+
+      - name: Build Zarf Package
+        env:
+          EARTHLY_TARGET: ${{ needs.detect-package.outputs.earthly_target }}
+        run: |
+          earthly --strict -P $EARTHLY_TARGET
+
+      - name: Upload Zarf Package to Cloud Storage
+        env:
+          VERSION: ${{ needs.detect-package.outputs.version }}
+          PACKAGE: ${{ needs.detect-package.outputs.package }}
+          ARTIFACT_NAME: ${{ needs.detect-package.outputs.artifact_name }}
+        run: |
+          gsutil -m cp ./packages/${ARTIFACT_NAME} gs://fluorite/provisioning-bundles/${PACKAGE}/${VERSION}/${ARTIFACT_NAME}
+
+      - name: Generate SLSA subjects
+        id: hash
+        env:
+          ARTIFACT_NAME: ${{ needs.detect-package.outputs.artifact_name }}
+        run: |
+          sha256sum packages/${ARTIFACT_NAME} > package.SHA256SUMS
+          echo "digests=$(base64 -w0 package.SHA256SUMS)" >> $GITHUB_OUTPUT
+
+  provenance-package:
+    needs: [detect-package, release-package]
+    if: needs.detect-package.outputs.package != ''
+    permissions:
+      actions: read # To read the workflow path.
+      id-token: write # To sign the provenance.
+      contents: write # To add assets to a release.
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
+    with:
+      base64-subjects: "${{ needs.release-package.outputs.digests }}"
+      upload-assets: true # Upload the provenance to Github Releases

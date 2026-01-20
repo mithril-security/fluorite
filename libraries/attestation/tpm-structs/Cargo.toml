@@ -1,0 +1,9 @@
+[package]
+name = "tpm-structs"
+version = "0.1.0"
+edition = "2024"
+authors = ["Mithril Security Contributors"]
+license = "Apache-2.0"
+
+[dependencies]
+kinded = "0.3.0"

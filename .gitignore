@@ -1,0 +1,10 @@
+/fluorite-os
+/gcp-cvm-notarizer
+coconut-svsm
+/packages
+target
+qemu
+svsm-linux-guest
+igvminst
+binaries
+os-base/kernel-configs/bak

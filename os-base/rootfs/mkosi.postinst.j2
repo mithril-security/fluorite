@@ -1,0 +1,16 @@
+#!/bin/bash
+
+echo "Removing Systemd GPT auto generator"
+rm $BUILDROOT/usr/lib/systemd/system-generators/systemd-gpt-auto-generator
+
+echo "Adding blacklist.conf"
+cp blacklist.conf $BUILDROOT/etc/modprobe.d/
+
+{% if debug %}
+# Uncomment the following and add your ssh key 
+# SSH access is useful for debugging. Serial console is also available but less convenient.
+echo "adding your ssh key for debug images"
+mkdir -p $BUILDROOT/root/.ssh
+echo "{{ debug_ssh_key }}" > $BUILDROOT/root/.ssh/authorized_keys
+chmod 600 $BUILDROOT/root/.ssh/authorized_keys
+{% endif %}

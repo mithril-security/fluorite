@@ -1,0 +1,46 @@
+[package]
+name = "provisioning"
+version = "0.1.0"
+edition = "2024"
+authors = ["Mithril Security Contributors"]
+
+
+[dependencies]
+axum = { version = "0.7.9", features = ["multipart"] }
+axum-server = { version = "0.7.1", features = ["tls-rustls"] }
+tokio = { version = "1.45.0", features = ["full"] }
+rcgen = "0.14.3"
+serde = { version = "1.0.197", features = ["derive"] }
+serde_json = "1.0.139"
+log = "0.4.27"
+rustls-pki-types = "1.11.0"
+anyhow = "1.0.96"
+reqwest = { version = "0.12.3", default-features = false, features = [
+    "rustls-tls",
+    "json",
+    "blocking",
+] }
+futures-util = "0.3.30"
+tokio-rustls = { version = "0.26.0", default-features = false }
+tower = "0.4.13"
+rustls = { version = "0.23.25", features = ["ring"], default-features = false }
+rustls-pemfile = "2.1.2"
+tower-http = { version = "0.5.2", features = ["trace"] }
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+base64 = "0.22.1"
+clap = { version = "4.5.4", features = ["derive"] }
+tss-esapi = { version = "7.5.1" }
+sha256 = "1.6.0"
+asn1-rs = "0.7.1"
+dryoc = "0.7.0"
+attestation = { path = "../../libraries/attestation/attestation", features = [
+    "tss-esapi",
+] }
+tpm-quote = { path = "../../libraries/attestation/tpm-quote" }
+azure-trusted-launch-attestation = { path = "../../libraries/attestation/azure-trusted-launch-attestation", default-features = false, features = ["generate"] }
+qemu-attestation = { path = "../../libraries/attestation/qemu-attestation", default-features = false, features = ["generate"] }
+svsm-sev-attestation = { path = "../../libraries/attestation/svsm-sev-attestation", default-features = false, features = ["generate"] }
+azure-cvm-attestation = { path = "../../libraries/attestation/azure-cvm-attestation", default-features = false, features = ["generate"] }
+gcp-shielded-vm-attestation = { path = "../../libraries/attestation/gcp-shielded-vm-attestation", default-features = false, features = ["generate"] }
+provisioning-structs = { path = "../../libraries/provisioning-structs" }
+serde_yaml = "0.9.34"

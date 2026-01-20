@@ -1,0 +1,17 @@
+[project]
+name = "fluorite-azure-cli"
+version = "0.1.0"
+description = "Tool to create a Fluorite cluster on Azure"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "azure-identity==1.25.1",
+    "azure-mgmt-compute==37.1.0",
+    "azure-mgmt-network==30.1.0",
+    "azure-mgmt-resource==24.0.0",
+    "pydantic==2.12.5",
+    "pyyaml==6.0.3",
+]
+
+[project.scripts]
+fluorite-azure = "main:cli"

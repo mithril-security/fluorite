@@ -1,0 +1,29 @@
+apiVersion: v1
+data:
+  tls.key: ###ZARF_VAR_PUBLIC_CA_KEY###
+kind: Secret
+metadata:
+  name: google-public-ca-tls
+type: Opaque
+immutable: true
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: google-public-ca
+spec:
+  acme:
+    email: ###ZARF_VAR_PUBLIC_CA_EMAIL###
+    disableAccountKeyGeneration: true
+    privateKeySecretRef:
+      name: google-public-ca-tls
+    server: https://dv.acme-v02.api.pki.goog/directory
+    enableDurationFeature: true # Enable asking certificates for a specific duration
+    solvers:
+      - http01:
+          ingress:
+            ingressClassName: traefik
+            ingressTemplate:
+              metadata:
+                annotations:
+                  "traefik.ingress.kubernetes.io/router.entrypoints": "web"

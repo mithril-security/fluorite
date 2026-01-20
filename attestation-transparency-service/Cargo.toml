@@ -1,0 +1,31 @@
+[package]
+name = "attestation-transparency-service"
+version = "0.1.0"
+edition = "2024"
+authors = ["Mithril Security Contributors"]
+
+[dependencies]
+anyhow = "1.0.98"
+axum = "0.8.4"
+axum-server = { version="0.7.2" , features = ["tls-rustls"]}
+base64 = "0.22.1"
+log = "0.4.27"
+rustls = { version = "0.23.27", features = ["ring"], default-features = false}
+serde = { version = "1.0.219", features = ["derive"]}
+tokio = {version = "1.45.0", features = ["full"] }
+tower-http = { version = "0.6.4", features = ["trace", "auth"]}
+tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
+hex = "0.4.3"
+dryoc = "0.7.0"
+x509-parser = "0.17.0"
+attestation = { path = "../libraries/attestation/attestation",  features = ["tss-esapi"] }
+tpm-quote = { path = "../libraries/attestation/tpm-quote" }
+attested-server-verifier = {  path = "../libraries/attested-server-verifier"}
+provisioning-structs = { path = "../libraries/provisioning-structs" }
+cloud-helpers = { path = "../libraries/cloud-helpers" }
+azure_storage_blobs = "0.21.0"
+sha256 = "1.6.0"
+sha2 = "0.10.9"
+serde_json = "1.0.140"
+reqwest = "0.12.19"
+envy = "0.4.2"

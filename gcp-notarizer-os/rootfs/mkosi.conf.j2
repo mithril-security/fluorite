@@ -1,0 +1,118 @@
+[Distribution]
+Distribution=ubuntu
+Release=plucky
+Repositories=main,universe,restricted,multiverse
+Architecture=x86-64
+
+[Build]
+PackageCacheDirectory=mkosi.cache
+
+[Content]
+SourceDateEpoch=0
+RemoveFiles=/var/log
+            /var/cache
+
+Bootable=yes
+Bootloader=uki
+Locale=C.UTF-8
+Timezone=UTC
+CleanPackageMetadata=true
+
+
+{% if debug %}
+RootPassword=root
+{% endif %}
+
+
+Initrds=./build/initrd
+
+# Remove kernel modules that are not used
+
+# Remove nouveau
+KernelModulesExclude=nouveau
+
+# Don't need WiFi
+KernelModulesExclude=cfg80211
+
+# Don't need qemu_fw_cfg
+KernelModulesExclude=qemu_fw_cfg
+
+# Don't need cec
+KernelModulesExclude=cec
+
+# Don't need vfat
+KernelModulesExclude=vfat
+
+# Don't need sound 
+KernelModulesExclude=snd
+KernelModulesExclude=soundcore
+
+# Don't need GPU/graphics
+KernelModulesExclude=drm
+KernelModulesExclude=i915
+KernelModulesExclude=amdgpu
+
+Packages=
+        # Core system packages
+        # https://github.com/systemd/mkosi/blob/v25.3/mkosi/resources/mkosi-vm/mkosi.conf
+        systemd
+        udev
+        util-linux
+
+        # https://github.com/systemd/mkosi/blob/v25.3/mkosi/resources/mkosi-vm/mkosi.conf.d/debian-kali-ubuntu/mkosi.conf
+        dbus-broker
+        iproute2
+        
+        polkitd
+        systemd-coredump
+        systemd-sysv
+        tpm2-tools
+        tzdata
+        zstd
+
+        # Kernel - use standard ubuntu kernel for GCP CVM
+        linux-generic
+
+        # Boot
+        systemd-boot
+        systemd-boot-efi
+
+        # DNS resolution
+        systemd-resolved
+
+        # CA certificates for TLS
+        ca-certificates
+        
+        {% if debug %}
+        login
+        vim
+        nano
+        apt
+        curl
+        net-tools
+        git
+        openssh-server
+        procps
+        iputils-ping
+        bash
+        diffutils
+        gawk
+        grep
+        gzip
+        kmod
+        less
+        sed
+        strace
+        {% endif %}
+
+KernelCommandLine={% if debug %} console=ttyS0 {% endif %} systemd.volatile=overlay
+
+[Validation]
+Checksum=yes
+
+[Output]
+Seed=a1b2c3d4-e5f6-7890-abcd-ef1234567890
+Format=disk
+Output=disk
+ManifestFormat=json
+OutputDirectory=build

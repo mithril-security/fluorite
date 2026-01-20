@@ -1,0 +1,36 @@
+[package]
+name = "gpu_attestation_server"
+version = "0.1.0"
+edition = "2021"
+authors = ["Mithril Security Contributors"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+hex = "0.4.3"
+nvml-wrapper-sys = "0.8.0"
+nvml-wrapper = { version ="0.11.0", features = ["serde"]}
+serde_json = "1.0.140"
+sha2 = {version = "0.10.9", features = ["oid"]}
+ring = "0.17.8"
+pki = "0.2.2"
+base64 = "0.22.1"
+x509-parser = "0.18.0"
+x509-ocsp = {version = "0.2.1", features=["builder"]}
+x509-cert = "0.2.5"
+der = {version = "0.7.9" , features=["alloc"]}
+reqwest = {version = "0.12.25", features=["json"]}
+libxml = "0.3.3"
+tokio = {version = "1.45.0", features = ["full"] }
+byte_string = "1.0.0"
+ecdsa = {version = "0.16.9", features = ["verifying","der"]}
+spki = "0.7.3"
+serde = "1.0.219"
+anyhow = "1.0.96"
+log = "0.4.28"
+bincode = "1.3"
+asn1-rs = "0.7.1"
+p384 = {version = "0.13.1" , features = ["sha384"]}
+samael = {version = "0.0.19", features = ["xmlsec"]}
+env_logger = "0.11.8"
+xmltree = {version = "0.12" , features = ["attribute-order"]}

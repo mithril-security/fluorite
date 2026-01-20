@@ -1,0 +1,23 @@
+{
+  "message": "/1RDR4AYACIAC/AEBe6IpJbtrtIRIO0hNZrljK9gshbeRQo5VAnhD3b+AAAAAAAAQeCuTwAAABgAAAAAASAWBREAFigAAAAAAQALA/8AAAAg0S/8ggHj21lv0i05EHBVVoMFrgAnB5OytDEnv4tmAO0=",
+  "signature": "ABQACwEAJ+mBL5HQkZik9GS0tvb/Hw1KF9VlJNuZMeey1E4pJPtOPEcRJttJfqG7GNGL+gksShh4Sy904lIYGqQZ50n2kfBrnH+gemtxwm1RaZdd/tyN8q52iLjtOpumRbjInRChLH5igeaVYCfIS8o22XQ5T0i6vEwngLTwvVURiHKDCAsDFc/YTBW8dFiCtM8WmFPaR6BpoAG9i1Bbgw8N1z4Sb933Ux8CnRxqBxSkJadvmXOXx1xNNatD+fAtnRdFbOHn7d5H5baN9hnRq32qsRMHjL099ClvAQySuo+E17eSRZRYgJGZWrdx4L7Zs2MpdYnMmUMHJTxTRHsiKorSpgIIMQ==",
+  "pcr_data": {
+    "data": [
+      [
+        "Sha256",
+        {
+          "bank": {
+            "Slot0": "d0c70a9310cd0b55767084333022ce53f42befbb69c059ee6c0a32766f160783",
+            "Slot1": "733d777d87913a3efbfd3c85a68c79fd7d77133bc7348763d57407eb2416f345",
+            "Slot2": "3d458cfe55cc03ea1f443f1562beec8df51c75e14a9fcf9a7234a13f198e7969",
+            "Slot3": "3d458cfe55cc03ea1f443f1562beec8df51c75e14a9fcf9a7234a13f198e7969",
+            "Slot4": "e400522fa78f9e1206086aa4c2741027dee88e9b7e10c5245c7e9ab2a4c1c84e",
+            "Slot5": "d29d6d662c0fb3aa8560928eab4ee51979cf9e6dc8508eead32d36df30ae9dae",
+            "Slot6": "3d458cfe55cc03ea1f443f1562beec8df51c75e14a9fcf9a7234a13f198e7969",
+            "Slot7": "80cf53255c50c0fee61a4dd51bca90aaa9be2ce41dfa3dc11c9a5e365934ee8d"
+          }
+        }
+      ]
+    ]
+  }
+}

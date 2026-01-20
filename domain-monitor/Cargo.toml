@@ -1,0 +1,30 @@
+[package]
+name = "domain-monitor"
+version = "0.1.0"
+edition = "2024"
+authors = ["Mithril Security Contributors"]
+
+[dependencies]
+anyhow = "1.0.98"
+reqwest = {version = "0.12.22", features = ["json"] }
+serde = { version = "1.0.219", features = ["derive"]}
+tokio = {version = "1.47.1", features = ["full"] }
+sha256 = "1.6.0"
+sha2 = "0.10.9"
+hex = "0.4.3"
+tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
+serde_json = "1.0.140"
+x509-parser = "0.17.0"
+base64 = "0.22.1"
+log = "0.4.27"
+rustls = { version = "0.23.27", features = ["ring"], default-features = false}
+axum = "0.8.4"
+axum-server = { version="0.7.2" , features = ["tls-rustls"]}
+tower-http = { version = "0.6.4", features = ["trace", "fs", "compression-deflate", "compression-gzip"]}
+futures = "0.3.31"
+attestation = { path = "../libraries/attestation/attestation",  features = ["tss-esapi"] }
+attested-server-verifier = {  path = "../libraries/attested-server-verifier"}
+provisioning-structs = { path = "../libraries/provisioning-structs" }
+oid-registry = "0.8.1"
+url = { version = "2.5.4", features = ["serde"]}
+envy = "0.4.2"

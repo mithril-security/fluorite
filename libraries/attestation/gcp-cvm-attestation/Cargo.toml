@@ -1,0 +1,54 @@
+[package]
+name = "gcp-cvm-attestation"
+version = "0.1.0"
+edition = "2021"
+authors = ["Mithril Security Contributors"]
+
+
+[features]
+default = ["generate", "verify"]
+generate = [
+    "dep:reqwest",
+    "dep:x509-parser",
+    "dep:tss-esapi",
+    "attestation/tss-esapi",
+]
+verify = [
+    "dep:const-oid",
+    "dep:x509-parser",
+    "dep:rustls-webpki",
+    "dep:rustls-pki-types",
+    "tpm-quote/verify",
+]
+
+[dependencies]
+attestation = { path = "../attestation", default-features = false }
+tpm-quote = { path = "../tpm-quote", default-features = false }
+log = "0.4.22"
+serde = { version = "1.0.214", features = ["derive"] }
+fn-error-context = "0.2.1"
+async-trait = "0.1.83"
+
+anyhow = { version = "1.0.89" }
+x509-parser = { version = "0.17.0", optional = true }
+
+tss-esapi = { version = "7.5.1", optional = true }
+reqwest = { version = "0.12.8", default-features = false, optional = true }
+
+const-oid = { version = "0.9.6", features = ["db"], optional = true }
+rustls-webpki = { version = "0.103.0", features = [
+    "alloc",
+    "ring",
+], optional = true }
+rustls-pki-types = { version = "1.11.0", optional = true }
+dryoc = { version = "0.7.0", features = ["serde"] }
+ciborium = "0.2.2"
+derive_more = { version = "2.0.1", features = ["from", "try_into"] }
+sha2 = "0.10.8"
+digest = "0.10.7"
+serde_with = { version = "3.14.0", features = ["base64"] }
+
+[dev-dependencies]
+insta = "1.40.0"
+serde_json = "*"
+tokio = { version = "*", features = ["macros"] }

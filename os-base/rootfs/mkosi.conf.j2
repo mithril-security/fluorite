@@ -1,0 +1,155 @@
+[Distribution]
+Distribution=ubuntu
+Release=plucky
+Repositories=main,universe,restricted,multiverse
+Architecture=x86-64
+
+[Build]
+PackageCacheDirectory=mkosi.cache
+
+[Content]
+SourceDateEpoch=0
+RemoveFiles=/var/log
+            /var/cache
+
+Bootable=yes
+Bootloader=uki
+Locale=C.UTF-8
+# WithDocs=no
+Timezone=UTC
+CleanPackageMetadata=true
+
+{% if debug %}
+RootPassword=root
+{% endif %}
+
+{% if snp_bare_metal %}
+# Contains linux-image-6.11.0, linux-headers-6.11.0
+PackageDirectories=../svsm-linux
+{% endif %}
+
+Initrds=./build/initrd
+
+# Remove kernel modules that are not used, which would be otherwise enabled
+
+# Remove nouveau
+KernelModulesExclude=nouveau
+
+# Don't need WiFi
+KernelModulesExclude=cfg80211
+
+# Don't need qemu_fw_cfg
+KernelModulesExclude=qemu_fw_cfg
+
+# Don't need cec
+KernelModulesExclude=cec
+
+# Don't need vfat
+KernelModulesExclude=vfat
+
+# Don't need sound 
+KernelModulesExclude=snd
+KernelModulesExclude=soundcore
+
+Packages=
+        # https://github.com/systemd/mkosi/blob/v25.3/mkosi/resources/mkosi-vm/mkosi.conf.d/debian-kali-ubuntu/mkosi.conf
+
+        # https://github.com/systemd/mkosi/blob/v25.3/mkosi/resources/mkosi-vm/mkosi.conf
+        systemd
+        udev
+        util-linux
+
+        # https://github.com/systemd/mkosi/blob/v25.3/mkosi/resources/mkosi-vm/mkosi.conf.d/debian-kali-ubuntu/mkosi.conf
+        dbus-broker
+        iproute2
+        
+        polkitd
+        systemd-coredump
+        systemd-sysv
+        tpm2-tools
+        tzdata
+        zstd # To remove zstd not found error
+
+        # https://github.com/systemd/mkosi/blob/v25.3/mkosi/resources/mkosi-vm/mkosi.conf.d/debian-kali-ubuntu/mkosi.conf.d/kernel-generic.conf
+        
+        {% if snp_bare_metal %}
+        linux-image-6.11.0
+        linux-headers-6.11.0
+        {% else %}
+        linux-generic  # Depends on linux-image-generic, linux-headers-generic
+        {% endif %}
+        # https://github.com/systemd/mkosi/blob/v25.3/mkosi/resources/mkosi-vm/mkosi.conf.d/debian-kali-ubuntu/mkosi.conf.d/systemd-boot-signed.conf
+        # systemd-boot-efi-signed
+         
+        # Boot
+        systemd-boot
+        systemd-boot-efi
+
+        # DNS resolution
+        systemd-resolved
+
+        apparmor
+        apparmor-utils
+        iptables-persistent
+
+        # CA certificates for TLS
+        ca-certificates
+
+        {% if debug %}
+         login
+         vim
+         nano
+         apt
+         curl
+         net-tools
+         git
+         openssh-server
+         procps
+         iputils-ping
+         bash
+         diffutils
+         gawk
+         grep
+         gzip
+         kmod
+         less
+         nano
+         sed
+         strace
+        {% endif %}
+        
+        {% if nvidia_driver %}
+        # For builing nvidia modules
+        build-essential
+        
+        # From https://docs.nvidia.com/cc-deployment-guide-snp.pdf v6.1
+        # We don't need the cuda-toolkit
+        # cuda-toolkit-12-8
+
+        # Updated to version 580
+        # See https://github.com/NVIDIA/nvtrust/issues/123
+        nvidia-driver-580-open
+
+        # nvidia-fabricmanager-570 for multi gpu 
+       
+        # https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/1.18.1-1/install-guide.html
+        nvidia-container-toolkit=1.18.1-1
+        nvidia-container-toolkit-base=1.18.1-1
+        libnvidia-container-tools=1.18.1-1
+        libnvidia-container1=1.18.1-1
+        {% endif %}
+
+KernelCommandLine={% if debug %} console=ttyS0 {% endif %} systemd.volatile=overlay {% if nvidia_driver %} pci=realloc,nocrs {% endif %}
+
+[Validation]
+# Generate a SHA256SUMS file of all generated artifacts after the build is complete.
+# Unused for now
+Checksum=yes
+
+
+[Output]
+Seed=38602f0d-c67c-4fb7-81e0-4b9071fe3603
+Format=disk
+Output=disk
+ManifestFormat=json
+OutputDirectory=build

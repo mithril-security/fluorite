@@ -1,0 +1,48 @@
+name: Publish Services Images
+
+on:
+  release:
+    types: [published]
+
+env:
+  FLUORITE_VERSION: "0.1.0"
+
+jobs:
+  publish-services-images:
+    if: startsWith(github.event.release.tag_name, 'services-v')
+    runs-on: fluorite-runner
+    timeout-minutes: 60
+    environment: release
+    steps:
+      - name: Setup Earthly
+        uses: earthly/actions-setup@v1
+        with:
+          version: v0.8.16
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set version
+        id: version
+        run: |
+          VERSION="${{ github.event.release.tag_name }}"
+          VERSION_NO_PREFIX="${VERSION#services-v}"
+          echo "tag=${VERSION}" >> $GITHUB_OUTPUT
+          echo "semver=${VERSION_NO_PREFIX}" >> $GITHUB_OUTPUT
+
+      - name: Docker Login
+        uses: azure/docker-login@v1
+        with:
+          login-server: fluorite.azurecr.io
+          username: fluorite
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: Build attestation-transparency-service and domain-monitor
+        env:
+          VERSION: ${{ steps.version.outputs.semver }}
+        run: |
+          curl "https://storage.googleapis.com/fluorite/$FLUORITE_VERSION/gcp-cvm-notarizer/gcp_notarizer_measurements.json" > libraries/attestation/gcp-shielded-vm-attestation/gcp_notarizer_measurements.json
+          curl "https://storage.googleapis.com/fluorite/$FLUORITE_VERSION/fluorite-os/baremetal-amd-sev/baremetal_measurements.json" > libraries/attestation/svsm-sev-attestation/baremetal_measurements.json
+
+          earthly --push +attestation-transparency-service-image --TAG=$VERSION
+          earthly --push +domain-monitor-image --TAG=$VERSION

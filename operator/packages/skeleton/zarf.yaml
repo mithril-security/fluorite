@@ -1,0 +1,115 @@
+kind: ZarfPackageConfig
+metadata:
+  name: skeleton
+  version: 0.1.0
+  description: |
+    "The Skeleton Provisioning Package."
+
+variables:
+  - name: CA_CRT_B64
+    description: The base64 encoded public certificate of the CA
+    sensitive: true
+  - name: CA_KEY_B64
+    description: The base64 encoded private certificate of the CA
+    sensitive: true
+  - name: ATTESTATION_B64
+    description: The base64 encoded attestation document
+    sensitive: true
+  - name: SIGNATURE_PRIVATE_KEY_B64
+    description: The base64 encoded private key that will be used to sign the CSR by the policy approver plugin
+    sensitive: true
+  - name: ATS_ENDPOINT
+    description: The Endpoint of the Attestation Transparency Service where CSR are sent (e.g. https://ats.example.com/verify_csr)
+    sensitive: true
+  - name: ATS_PASSWORD
+    description: The Password for Endpoint of the Attestation Transparency Service where CSR are sent
+    sensitive: true
+  - name: PUBLIC_CA_KEY
+    description: The key used to authenticate to Public CA service (e.g. Google, Let's Encrypt, ...)
+    sensitive: true
+  - name: PUBLIC_CA_EMAIL
+    description: The email used to authenticate to Public CA service (e.g. Google, Let's Encrypt, ...)
+    sensitive: true
+  - name: HOSTNAME
+    description: The hostname to use
+    sensitive: true
+
+components:
+  - name: traefik-crd
+    required: true
+    manifests:
+      - name: traefik-crd
+        files:
+          - ../common/kubernetes-crd-definition-v1.yml
+          - ../common/kubernetes-crd-rbac.yml
+
+  - name: traefik
+    required: true
+    manifests:
+      - name: traefik
+        namespace: app
+        files:
+          - ../common/traefik.yaml
+    images:
+      - traefik:v3.6.6
+
+  - name: cert-manager
+    required: true
+    charts:
+      - name: cert-manager
+        url: https://charts.jetstack.io
+        version: v1.18.1
+        namespace: cert-manager
+        valuesFiles:
+          - ../common/cert-manager-values.yaml
+    images:
+      - quay.io/jetstack/cert-manager-cainjector:v1.18.1
+      - quay.io/jetstack/cert-manager-controller:v1.18.1
+      - quay.io/jetstack/cert-manager-startupapicheck:v1.18.1
+      - quay.io/jetstack/cert-manager-webhook:v1.18.1
+
+  - name: google-private-certificate-authority
+    required: true
+    manifests:
+      - name: certificate-issuer
+        namespace: app
+        files:
+          - ../common/google-certificate-issuer.yaml
+    images:
+      - quay.io/jetstack/cert-manager-acmesolver:v1.18.1
+  
+  - name: self-signed-certificate-authority
+    required: true
+    manifests:
+      - name: certificate-issuer
+        namespace: app
+        files:
+          - ../common/certificate-issuer.yaml
+
+  - name: certificate-policy-secrets
+    required: true
+    manifests:
+      - name: certificate-policy-secrets
+        namespace: app
+        files:
+          - ../common/fluorite-approver-policy-plugin/deploy/deployments/secrets.yaml
+
+  - name: approver-plugin
+    required: true
+    images:
+      - fluorite-approver-policy-plugin:latest
+    charts:
+      - name: cert-manager-approver-policy
+        namespace: cert-manager
+        version: 0.1.0
+        localPath: ../common/fluorite-approver-policy-plugin/deploy/charts/fluorite-approver-policy-plugin
+        valuesFiles:
+          - ../common/fluorite-approver-policy-plugin/deploy/charts/fluorite-approver-policy-plugin/values.yaml
+
+  - name: certificate-policy
+    required: true
+    manifests:
+      - name: certificate-policy
+        namespace: app
+        files:
+          - ../common/fluorite-approver-policy-plugin/deploy/deployments/mypolicy.yaml

@@ -1,0 +1,24 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: gpu-attestation-check
+spec:
+  selector:
+    matchLabels:
+      name: gpu-attestation-checker
+  template:
+    metadata:
+      labels:
+        name: gpu-attestation-checker
+    spec:
+      runtimeClassName: nvidia
+      tolerations:
+      - operator: Exists
+        effect: NoSchedule
+      containers:
+        - name: gpu-attestation-checker-container
+          image: gpu-attestation-checker:latest
+          securityContext:
+            privileged: true
+            runAsUser: 0
+      restartPolicy: Always

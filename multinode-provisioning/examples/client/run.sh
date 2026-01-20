@@ -1,0 +1,2 @@
+cargo run --release -- --master-url https://vm.net-safe.dedyn.io/ --operator-certificate-path ./cert.pem --bundle-hash "16b5d3373eebe612144d6d85dd270a1e1cfaeb41becc346ec28133897e834ef7" --os-measurement "172cff7d677a125c5ebd808b839c7de6d3ed98505b9522288ce07af0dc605cc8"
+# cargo run --release -- --master-url https://google.com/ --operator-certificate-path ./cert.pem --bundle-hash "f936986a77833d4c2dd9c3bdcb2f2492ede0b054eb5838f7f84fcc0b3a78ef05" --os-measurement "172cff7d677a125c5ebd808b839c7de6d3ed98505b9522288ce07af0dc605cc8"

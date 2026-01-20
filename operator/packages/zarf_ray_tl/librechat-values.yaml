@@ -1,0 +1,63 @@
+global:
+  librechat:
+    existingSecretName: "librechat-credentials-env"
+
+librechat:
+  configEnv:
+    ALLOW_REGISTRATION: "true"
+    ALLOW_EMAIL_LOGIN: "true"
+  
+  configYamlContent: |
+    version: 1.3.1
+    cache: true
+    endpoints:
+      agents:
+        disableBuilder: true 
+        capabilities: []
+      custom:
+        - name: "RayServe"
+          # Ray Serve doesn't need a real key, but LibreChat requires a non empty string
+          apiKey: "none" 
+          baseURL: "http://ray-serve-llm-serve-svc:8000/v1"
+          models:
+            default: ["qwen2.5-7b-instruct"] # Replace with your model name
+            fetch: true # Attempts to fetch available models from your Ray endpoint
+          titleConvo: true
+          summarize: false 
+    interface:
+      modelSelect: false
+      sidePanel: false
+      presets: false
+      prompts: false
+      bookmarks: false
+      multiConvo: false
+      agents: false
+      runCode: false
+      webSearch: false
+      fileSearch: false
+      fileCitations: false
+      temporaryChatRetention: 1
+    memory:
+      disabled: true
+
+lifecycle:
+  postStart:
+    exec:
+      command:
+        [
+          "/bin/sh",
+          "-c",
+          'npm run update-banner 2026-01-01T00:00:00Z 2027-12-31T23:59:59Z ''<a href="https://domainmonitor.###ZARF_VAR_HOSTNAME###/" target="_blank"><span>🛡️</span> Check the Attestation Status of the Enclave →</a>'' true false',
+        ]
+
+ingress:
+  enabled: false
+meilisearch:
+  enabled: false
+mongodb:
+  enabled: true
+  image:
+    registry: docker.io
+    repository: bitnami/mongodb
+    tag: ""
+    digest: "sha256:0d9e97ec8c99a34b537f1eb2ff348540ba4d27c8212751034117795ba4243163"
