@@ -1,0 +1,19 @@
+{
+    "name": "Rust DevContainer",
+    "image": "build-app",
+    "customizations": {
+      "vscode": {
+        "extensions": [
+          "rust-lang.rust-analyzer",
+        ]
+      }
+    },
+    "remoteUser": "root",
+    "postCreateCommand": "rustup default nightly && cargo build --release",
+    "mounts": [
+      "source=/home/azureuser/fluorite/multinode-provisioning/libraries/,target=/workspaces/libraries/,type=bind",
+      "source=${localEnv:HOME}/.cargo/registry,target=/root/.cargo/registry,type=bind",
+      "source=${localEnv:HOME}/.cargo/git,target=/root/.cargo/git,type=bind"
+    ]
+}
+  

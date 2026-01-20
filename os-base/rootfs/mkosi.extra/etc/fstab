@@ -1,0 +1,2 @@
+tmpfs /tmp tmpfs mode=1777,strictatime,nosuid,nodev,size=30% 0 0
+tmpfs /var/lib/rancher tmpfs mode=1777,strictatime,nosuid,nodev,size=70% 0 0

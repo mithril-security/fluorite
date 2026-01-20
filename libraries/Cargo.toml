@@ -1,0 +1,15 @@
+[workspace]
+resolver = "2"
+
+members = [
+    "attestation/attestation",
+    "attestation/tpm-structs",
+    "attestation/tpm-quote",
+    "attestation/attestation",
+    "attestation/gcp-cvm-attestation",
+    "attestation/azure-trusted-launch-attestation",
+    "attestation/qemu-attestation",
+    "attested-server-verifier",
+    "cloud-helpers",
+    "provisioning-structs"
+]

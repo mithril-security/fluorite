@@ -1,0 +1,154 @@
+name: Build and publish the OS Images
+on:
+  release:
+    types: [published]
+
+permissions:
+  id-token: write # This is required for requesting the JWT
+  contents: write # This is required for actions/checkout, and for updating the release
+  
+jobs:
+  Build-And-Publish:
+    outputs:
+      digests: ${{ steps.hash.outputs.digests }}
+    runs-on: 16-core
+    environment: release
+    steps:
+      - name: Build image
+        uses: earthly/actions-setup@v1
+        with:
+          version: v0.8.0
+        
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Earthly Logout
+        run: earthly account logout
+
+      - name: Build Shielded VM OS Image
+        run: earthly --strict -P +fluorite-os --outputDir=platform/gcp-shielded-vm/local-tpm/
+
+      - name: Build Shielded VM OS Image with Nvidia Drivers
+        run: earthly --strict -P +fluorite-os --nvidiaDriver=true --outputDir=platform/gcp-shielded-vm/local-tpm-gpu/
+      
+      - name: Google CVM
+        run: earthly --strict -P +gcp-notarizer-os --outputDir=platform/gcp-cvm-notarizer/
+
+      # - name: Build SVSM Host and Guest Kernel
+      #   run: earthly --strict +svsm-kernel
+
+      # - name: Build SVSM OS Image
+      #   run: earthly --strict -P +fluorite-os --nvidiaDriver=true --snpBareMetal=true --outputDir=platform/baremetal-amd-sev/local-svsm/
+
+      # - name: Build Nginx and Ray packages
+      #   run: earthly --strict -P +zarf-packages
+      
+      # - name: Build OVMF, the coconut IGVM package, IGVM inst qemu dep, QEMU
+      #   run: earthly --strict +svsm-setup
+      
+      - id: 'auth'
+        uses: 'google-github-actions/auth@v3'
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_SA_EMAIL }}
+
+      # - name: Package and compress svsm artifacts
+      #   run: |
+      #     tar cvzf svsm.tar.gz igvminst/ qemu/ coconut-svsm/ ./svsm-linux-host ./svsm-linux-guest 
+
+      - id: 'upload-os-versions'
+        uses: 'google-github-actions/upload-cloud-storage@v3'
+        with:
+          path: './platform'
+          destination: 'fluorite'
+      
+      # - id: 'upload-packages'
+      #   uses: 'google-github-actions/upload-cloud-storage@v3'
+      #   with:
+      #     path: './packages'
+      #     destination: 'fluorite'
+
+      # - id: 'upload-svsm'
+      #   uses: 'google-github-actions/upload-cloud-storage@v3'
+      #   with:
+      #     path: './svsm.tar.gz'
+      #     destination: 'fluorite'
+      
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Install azcopy
+        run: |
+          wget https://aka.ms/downloadazcopy-v10-linux
+          tar -xzf downloadazcopy-v10-linux
+          sudo cp ./azcopy_linux_amd64_*/azcopy /usr/bin/azcopy
+          sudo chmod +x /usr/bin/azcopy
+          rm -rf ./azcopy_linux_amd64_*/
+          rm downloadazcopy-v10-linux
+
+      # For qemu-img to resize disk
+      - name: Set up QEMU
+        run: sudo apt-get update && sudo apt-get install -y qemu-utils
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Run script to resize and upload image to Azure
+        working-directory: operator/upload-os-image
+        run: |
+          uv sync --locked --all-extras --dev
+
+          uv run main.py \
+            --os-disk-path ../../platform/gcp-shielded-vm/local-tpm-gpu/image.raw \
+            --resource-group-name fluorite-azure-registries \
+            --location eastus2 \
+            --target-regions francecentral \
+            --gallery-image-name FluoriteOS_GPU \
+            --sku GPU \
+            --os-measurement $(jq -r .fluoriteos_pcr4 ../../platform/gcp-shielded-vm/local-tpm-gpu/os-measurement.json)
+
+          uv run main.py \
+            --os-disk-path ../../platform/gcp-shielded-vm/local-tpm/image.raw \
+            --resource-group-name fluorite-azure-registries \
+            --location eastus2 \
+            --target-regions francecentral \
+            --gallery-image-name FluoriteOS \
+            --sku Standard \
+            --os-measurement $(jq -r .fluoriteos_pcr4 ../../platform/gcp-shielded-vm/local-tpm/os-measurement.json)
+
+      # - name: Generate SLSA subjects
+      #   id: hash
+      #   run:  |
+      #     sha256sum                                     \
+      #       platform/gcp-shielded-vm/local-tpm/* \
+      #       platform/gcp-shielded-vm/local-tpm-gpu/*        \
+      #        platform/gcp-cvm-notarizer/*
+      #       platform/baremetal-amd-sev/local-svsm/*     \
+      #       packages/*                                  \
+      #       svsm.tar.gz  > ./measurements/artifacts.SHA256SUMS
+      #     echo "digests=$(base64 -w0 ./measurements/artifacts.SHA256SUMS)" >> $GITHUB_OUTPUT
+      
+      # - name: Upload measurements to Release
+      #   uses: softprops/action-gh-release@v2
+      #   if: ${{ github.event_name == 'release' && github.event.action == 'published' }}
+      #   with:
+      #     files: measurements/* # Path to the file in your repo's workspace
+      #     token: ${{ secrets.GITHUB_TOKEN }}
+
+  # provenance:
+  #   needs: Build-And-Publish
+  #   permissions:
+  #     actions: read # To read the workflow path.
+  #     id-token: write # To sign the provenance.
+  #     contents: write # To add assets to a release.
+  #   uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
+  #   with:
+  #     private-repository: true
+  #     base64-subjects: "${{ needs.Build-And-Publish.outputs.digests }}"
+  #     upload-assets: true # Upload the provenance to Github Releases 

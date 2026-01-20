@@ -1,0 +1,14 @@
+#!/bin/bash
+
+echo "Removing Systemd GPT auto generator"
+rm $BUILDROOT/usr/lib/systemd/system-generators/systemd-gpt-auto-generator
+
+echo "Adding blacklist.conf"
+cp blacklist.conf $BUILDROOT/etc/modprobe.d/
+
+# Uncomment the following and add your ssh key, azure's serial console is tricky, ssh is the preffered debugging method
+#echo "adding your ssh key for debug images"
+#mkdir $BUILDROOT/root/.ssh/
+#mkdir $BUILDROOT/root/.ssh/authroized_keys
+#echo "ssh-rsa <your ssh pubkey>" >> $BUILDROOT/root/.ssh/authorized_keys/id_rsa.pub
+#sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/g' $BUILDROOT/etc/ssh/sshd_config
