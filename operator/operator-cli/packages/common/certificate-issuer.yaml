@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: root-ca-secret
+type: Opaque
+data:
+  tls.crt: ###ZARF_VAR_CA_CRT_B64###
+  tls.key: ###ZARF_VAR_CA_KEY_B64###
+immutable: true
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: root-ca-issuer
+spec:
+  ca:
+    secretName: root-ca-secret
+---
+

@@ -1,0 +1,119 @@
+kind: ZarfPackageConfig
+metadata:
+  name: ray
+  version: 1.0.0
+  description: |
+    "A Zarf Package for deploying Ray on Kubernetes with Open WebUI."
+
+variables:
+  - name: HUGGING_FACE_KEY
+    sensitive: true
+  # tensor_parallel_size
+  - name: GPUS_PER_NODE 
+    default: "1"
+    pattern: "^[0-9]+$"
+  # pipeline_parallel_size
+  - name: NODES
+    default: "1"
+    pattern: "^[0-9]+$"
+
+components:
+  - name: gpu-operator
+    required: true
+    charts:
+      - name: gpu-operator
+        url: https://helm.ngc.nvidia.com/nvidia
+        version: v25.10.1
+        namespace: gpu-operator
+        valuesFiles:
+          - gpu-operator-values.yaml
+    images:
+      - nvcr.io/nvidia/k8s-device-plugin:v0.18.1
+      - registry.k8s.io/nfd/node-feature-discovery:v0.18.2
+      - nvcr.io/nvidia/gpu-operator:v25.10.1
+      - nvcr.io/nvidia/k8s/dcgm-exporter:4.4.2-4.7.0-distroless
+      - nvcr.io/nvidia/cloud-native/k8s-mig-manager:v0.13.1
+
+  - name: cert-manager
+    required: true
+    import:
+      path: ../skeleton
+
+  - name: google-private-certificate-authority
+    required: true
+    import:
+      path: ../skeleton
+
+  - name: certificate-policy-secrets
+    required: true
+    import:
+      path: ../skeleton
+
+  - name: approver-plugin
+    required: true
+    import:
+      path: ../skeleton
+
+  - name: certificate-policy
+    required: true
+    import:
+      path: ../skeleton
+
+  - name: ray
+    required: true
+    charts:
+      - name: kuberay-operator
+        url: https://ray-project.github.io/kuberay-helm/
+        version: v1.5.1
+        namespace: app
+      - name: ray-cluster
+        url: https://ray-project.github.io/kuberay-helm/
+        version: v1.5.1
+        namespace: app
+        valuesFiles:
+          - ray-values.yaml
+    images:
+      - rayproject/ray:2.52.0
+      - quay.io/kuberay/operator:v1.5.1
+
+  - name: traefik-crd
+    required: true
+    import:
+      path: ../skeleton
+
+  - name: traefik
+    required: true
+    import:
+      path: ../skeleton
+
+  - name: ray-service
+    required: true
+    manifests:
+      - name: ray-service
+        namespace: app
+        files:
+          - ray-secrets.yaml
+          - ray-service.yaml
+    images:
+      - rayproject/ray-llm:2.52.0-py311-cu128
+
+  - name: open-webui
+    required: true
+    charts:
+      - name: open-webui
+        url: https://open-webui.github.io/helm-charts
+        version: v10.2.1
+        namespace: app
+        valuesFiles:
+          - open-webui-values.yaml
+    images:
+      - ghcr.io/open-webui/open-webui:0.7.2
+      - redis:7.4.2-alpine3.21
+
+  - name: chat-ingress
+    required: true
+    manifests:
+      - name: chat-ingress
+        namespace: app
+        files:
+          - chat-ingress.yaml

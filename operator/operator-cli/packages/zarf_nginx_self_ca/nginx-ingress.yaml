@@ -1,0 +1,37 @@
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: nginx-ingress-route-insecure
+spec:  
+  entryPoints:
+    - web
+
+  routes:
+    - match: Host(`###ZARF_VAR_HOSTNAME###`)
+      kind: Rule
+      middlewares:
+        - name: redirect-https-middleware
+      services:
+        - name: nginx-service
+          port: web
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: nginx-ingress-route
+spec:  
+  entryPoints:
+    - websecure
+
+  routes:
+    - match: Host(`###ZARF_VAR_HOSTNAME###`)
+      kind: Rule
+      middlewares:
+        - name: security-headers-middleware
+      services:
+        - name: nginx-service
+          port: web
+  tls:
+    secretName: example-server-cert
+    options:
+      name: tlsoptions 
