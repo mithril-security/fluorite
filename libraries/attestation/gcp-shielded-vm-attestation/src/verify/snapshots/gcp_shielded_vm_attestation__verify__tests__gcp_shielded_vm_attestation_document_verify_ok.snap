@@ -1,0 +1,41 @@
+---
+source: gcp-shielded-vm-attestation/src/verify/mod.rs
+expression: pcr_data
+---
+SanitizedPcrData(
+    PcrData {
+        data: [
+            (
+                Sha256,
+                PcrBank {
+                    bank: {
+                        Slot0: d0c70a9310cd0b55767084333022ce53f42befbb69c059ee6c0a32766f160783,
+                        Slot1: 297c9bc3a95ba71a90e9fbaecaede3bc390f399313c9233fbb4db8c6ecc2196b,
+                        Slot2: 3d458cfe55cc03ea1f443f1562beec8df51c75e14a9fcf9a7234a13f198e7969,
+                        Slot3: 3d458cfe55cc03ea1f443f1562beec8df51c75e14a9fcf9a7234a13f198e7969,
+                        Slot4: 5b65d2d390d40a5dffb29675a90939615b25aaf164a8b493743242e6f5e84389,
+                        Slot5: 02daa17c60f4c7710ec6123d58066aacee12aacca3babb127d051e65e4fbbda3,
+                        Slot6: 3d458cfe55cc03ea1f443f1562beec8df51c75e14a9fcf9a7234a13f198e7969,
+                        Slot7: 353ed445dac520bb6bffeb9f232943c00d9d3b5536a50f1958e5583956cefc76,
+                        Slot8: cd31fa4b251f57334947e2bcc76da971d3914975293bb9d8478b9dec40869360,
+                        Slot9: b357d9f9fee03bcc78df42cf3e1a39cf38aeea934f9761dc27d958bbf1673796,
+                        Slot10: ecdb5420825167b81f38127d645b46c90e2bd2887fc75290bd766d87f0954498,
+                        Slot11: 0000000000000000000000000000000000000000000000000000000000000000,
+                        Slot12: 0000000000000000000000000000000000000000000000000000000000000000,
+                        Slot13: 0000000000000000000000000000000000000000000000000000000000000000,
+                        Slot14: 306f9d8b94f17d93dc6e7cf8f5c79d652eb4c6c4d13de2dddc24af416e13ecaf,
+                        Slot15: 0000000000000000000000000000000000000000000000000000000000000000,
+                        Slot16: 0000000000000000000000000000000000000000000000000000000000000000,
+                        Slot17: ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff,
+                        Slot18: ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff,
+                        Slot19: ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff,
+                        Slot20: ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff,
+                        Slot21: ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff,
+                        Slot22: ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff,
+                        Slot23: 0000000000000000000000000000000000000000000000000000000000000000,
+                    },
+                },
+            ),
+        ],
+    },
+)

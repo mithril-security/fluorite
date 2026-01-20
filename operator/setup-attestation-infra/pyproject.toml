@@ -1,0 +1,14 @@
+[project]
+name = "setup-attestation-infra"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "azure-identity>=1.25.1",
+    "azure-mgmt-cdn>=13.1.1",
+    "azure-mgmt-dns>=9.0.0",
+    "azure-mgmt-resource>=24.0.0",
+    "azure-mgmt-storage>=24.0.0",
+    "requests>=2.32.5",
+]

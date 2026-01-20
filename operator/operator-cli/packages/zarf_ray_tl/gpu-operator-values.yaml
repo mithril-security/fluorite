@@ -1,0 +1,9 @@
+# See: https://docs.nvidia.com/datacenter/cloud-native/gpu-operator/latest/getting-started.html#common-chart-customization-options
+
+# Use system installed driver
+driver:
+  enabled: false
+
+# The system comes with nvidia-container-toolkit preinstalled
+toolkit:
+  enabled: false
