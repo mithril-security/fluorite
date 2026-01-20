@@ -78,15 +78,15 @@ async fn main() -> anyhow::Result<()> {
     let args = envy::from_env::<Args>().context("Error parsing environment variables")?;
 
     // Login using the user-assigned managed identities
-    // Command::new("/usr/bin/az")
-    //     .args([
-    //         "login",
-    //         "--identity",
-    //         "--resource-id",
-    //         &args.identity_resource_id,
-    //     ])
-    //     .output()
-    //     .context("Failed to execute 'az login' command. Is Azure CLI installed and in PATH?")?;
+    Command::new("/usr/bin/az")
+        .args([
+            "login",
+            "--identity",
+            "--resource-id",
+            &args.identity_resource_id,
+        ])
+        .output()
+        .context("Failed to execute 'az login' command. Is Azure CLI installed and in PATH?")?;
 
     ensure!(
         !args.operator_certificate_b64.is_empty(),
@@ -103,12 +103,12 @@ async fn main() -> anyhow::Result<()> {
     let resource_group_name = args.resource_group_name;
     let storage_account_name = args.attestation_storage_account_name;
 
-    // let azure_helper = AzureHelper::new(args.azure_subscription_id).await?;
+    let azure_helper = AzureHelper::new(args.azure_subscription_id).await?;
 
-    // let storage_client = azure_helper.get_azure_mgmt_storage_client()?;
+    let storage_client = azure_helper.get_azure_mgmt_storage_client()?;
 
-    // let container_name = "$web".to_string();
-    // let container_client = azure_helper.get_container_client(storage_client, resource_group_name, storage_account_name, container_name).await?;
+    let container_name = "$web".to_string();
+    let container_client = azure_helper.get_container_client(storage_client, resource_group_name, storage_account_name, container_name).await?;
 
     let (platform_measurements, os_measurement_vec) =
         parse_cli_measurements(args.platform_measurements_path, args.os_measurement)?;
@@ -120,7 +120,7 @@ async fn main() -> anyhow::Result<()> {
         bundle_hash: args.bundle_hash,
         os_measurement_vec: os_measurement_vec,
         platform_measurements: platform_measurements,
-        // container_client: container_client,
+        container_client: container_client,
         storage_url: args.storage_url,
         attestation_backend: args.attestation_backend,
     };

@@ -31,7 +31,7 @@ pub struct MyState {
     pub bundle_hash: String,
     pub os_measurement_vec: Vec<u8>,
     pub platform_measurements: PcrData,
-    // pub container_client: ContainerClient,
+    pub container_client: ContainerClient,
     pub storage_url: Url,
     pub attestation_backend: AttestationBackend,
 }
@@ -141,29 +141,29 @@ impl MyState {
         info!("Uploading blob at path {blob_name}");
         info!("{}", serde_json::to_string(&proof)?);
 
-        // let blob_client = self.container_client.blob_client(&blob_name);
-        // blob_client
-        //     .put_block_blob(serde_json::to_vec(&proof)?)
-        //     .content_type("application/json")
-        //     .await
-        //     .context("Error uploading the blob")?;
+        let blob_client = self.container_client.blob_client(&blob_name);
+        blob_client
+            .put_block_blob(serde_json::to_vec(&proof)?)
+            .content_type("application/json")
+            .await
+            .context("Error uploading the blob")?;
 
-        // let publish_url = self.storage_url.join(&blob_name)?;
+        let publish_url = self.storage_url.join(&blob_name)?;
 
-        // info!("Checking publication of the blob at {publish_url}");
-        // let published_proof: Proof = serde_json::from_str(
-        //     &reqwest::get(publish_url)
-        //         .await
-        //         .context("Error performing GET request on the publish URL")?
-        //         .text()
-        //         .await?,
-        // )
-        // .context("Failed parsing published blob.")?;
+        info!("Checking publication of the blob at {publish_url}");
+        let published_proof: Proof = serde_json::from_str(
+            &reqwest::get(publish_url)
+                .await
+                .context("Error performing GET request on the publish URL")?
+                .text()
+                .await?,
+        )
+        .context("Failed parsing published blob.")?;
 
-        // ensure!(
-        //     proof == published_proof,
-        //     "Publication check failed. The uploaded blob does not match the published one."
-        // );
+        ensure!(
+            proof == published_proof,
+            "Publication check failed. The uploaded blob does not match the published one."
+        );
 
         info!("Upload successful");
 
