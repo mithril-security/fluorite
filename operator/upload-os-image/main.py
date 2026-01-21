@@ -44,8 +44,6 @@ from azure.mgmt.storage.models import (
 from azure.storage.blob import BlobServiceClient
 from azure.storage.blob import generate_blob_sas, BlobSasPermissions
 
-from packaging import version
-
 import logging
 import sys
 import argparse
@@ -93,6 +91,7 @@ def main(
     target_regions: list[str],
     gallery_image_name: str,
     os_measurement: str,
+    image_version: str,
 ):
     credential = AzureCliCredential()
 
@@ -354,43 +353,17 @@ def main(
 
     logging.info(f"Created Gallery Image: {gallery_image_name}")
 
-    # az sig image-version list \
-    #     --gallery-name $GALLERY_NAME \
-    #     --gallery-image-definition $GALLERY_IMAGE_DEFINITION \
-    #     --resource-group $RESOURCE_GROUP
-
-    versions = compute_client.gallery_image_versions.list_by_gallery_image(
-        resource_group_name=resource_group_name,
-        gallery_name=gallery_name,
-        gallery_image_name=gallery_image_name,
-    )
-
-    sorted_versions = sorted(
-        versions, key=lambda v: version.parse(v.name)  # type: ignore
-    )
-
-    if sorted_versions:
-        latest_gallery_image_version = sorted_versions[-1]
-        latest_version_obj = version.parse(latest_gallery_image_version.name)  # type: ignore
-
-        # Get the name for the next release
-        latest_version: str = (
-            f"{latest_version_obj.major + 1}.{latest_version_obj.minor}.{latest_version_obj.micro}"
-        )
-    else:
-        latest_version: str = "1.0.0"
-
     # az sig image-version create \
     #     --resource-group $RESOURCE_GROUP \
     #     --gallery-name $GALLERY_NAME
     #     --gallery-image-definition $GALLERY_IMAGE_NAME \
-    #     --gallery-image-version $LATEST_VERSION \
+    #     --gallery-image-version $IMAGE_VERSION \
     #     --os-vhd-storage-account $STORAGE_ACCOUNT_ID \
     #     --os-vhd-uri $BLOB_URL
 
-    logging.info(f"Creating image with version: {latest_version}")
+    logging.info(f"Creating image with version: {image_version}")
 
-    gallery_image_version_name = latest_version
+    gallery_image_version_name = image_version
     uri = f"{storage_account.primary_endpoints.blob}{container_name}/{disk_name}"
 
     source = GalleryDiskImageSource(storage_account_id=storage_account.id, uri=uri)
@@ -514,6 +487,13 @@ if __name__ == "__main__":
         "--os-measurement", help="The OS PCR4 measurement", type=str, required=True
     )
 
+    parser.add_argument(
+        "--version",
+        help="The image version in semver format (e.g., 1.0.0)",
+        type=str,
+        required=True,
+    )
+
     args = parser.parse_args()
 
     if not os.path.isfile(args.os_disk_path):
@@ -548,4 +528,5 @@ if __name__ == "__main__":
         target_regions=args.target_regions,
         gallery_image_name=args.gallery_image_name,
         os_measurement=args.os_measurement,
+        image_version=args.version,
     )
