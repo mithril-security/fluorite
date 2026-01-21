@@ -529,7 +529,7 @@ pub async fn provision_cluster(
         .part("provisioning_bundle", provisoning_bundle_part)
         .text("deployment_config", deployment_config_str)
         .text("deployment_size", deployment_size_bytes.to_string());
-    info!("Started provisioning cluster");
+    info!("Started provisioning cluster. Uploading provisioning package...");
     let post_provision_cluster_endpoint = format!(
         "https://{}:{}/master/provision_cluster",
         master.address, PROTOCOL_PORT
@@ -537,6 +537,7 @@ pub async fn provision_cluster(
 
     let response_provision_cluster = client
         .post(post_provision_cluster_endpoint.clone())
+        .timeout(Duration::from_mins(5))
         .multipart(form)
         .send()
         .await

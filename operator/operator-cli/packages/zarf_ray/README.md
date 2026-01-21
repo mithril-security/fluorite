@@ -1,11 +1,3 @@
-# ZARF RAY
+# ZARF RAY + LibreChat
 
-Deploys Ray on a running cluster with Open-WebUI (available at https://chat.example.com).
-
-In this configuration the inference is spread across two nodes, each with one GPU. Depending on your cluster configuration you may want to change this, and it's enough to modify [ray-service.yaml](./ray-service.yaml). 
-```
-tensor_parallel_size: 1
-pipeline_parallel_size: 2
-```
-
-Notice that `workerGroupSpecs.spec.replicas = 2`, because there are two nodes in this configuration.
+Deploys Ray on a running cluster with LibreChat ([docs](https://www.notion.so/mithril-security/The-ray-package-1e4f92285f5e8020bc0fe901bea7e9ae)).

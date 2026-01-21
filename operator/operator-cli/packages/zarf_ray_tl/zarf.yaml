@@ -3,13 +3,13 @@ metadata:
   name: ray
   version: 1.0.0
   description: |
-    "A Zarf Package for deploying Ray on Kubernetes with Open WebUI."
+    "A Zarf Package for deploying Ray on Kubernetes with LibreChat."
 
 variables:
   - name: HUGGING_FACE_KEY
     sensitive: true
   # tensor_parallel_size
-  - name: GPUS_PER_NODE 
+  - name: GPUS_PER_NODE
     default: "1"
     pattern: "^[0-9]+$"
   # pipeline_parallel_size
@@ -97,18 +97,28 @@ components:
     images:
       - rayproject/ray-llm:2.52.0-py311-cu128
 
-  - name: open-webui
+  - name: librechat
     required: true
+    actions:
+      onDeploy:
+        before:
+          - cmd: |
+              k3s kubectl create secret generic librechat-credentials-env \
+                --namespace app \
+                --from-literal=CREDS_KEY=$(openssl rand -hex 32) \
+                --from-literal=CREDS_IV=$(openssl rand -hex 16) \
+                --from-literal=JWT_SECRET=$(openssl rand -hex 32) \
+                --from-literal=JWT_REFRESH_SECRET=$(openssl rand -hex 32)
     charts:
-      - name: open-webui
-        url: https://open-webui.github.io/helm-charts
-        version: v10.2.1
+      - name: librechat
+        url: oci://ghcr.io/danny-avila/librechat-chart/librechat
         namespace: app
+        version: 1.9.6
         valuesFiles:
-          - open-webui-values.yaml
+          - librechat-values.yaml
     images:
-      - ghcr.io/open-webui/open-webui:0.7.2
-      - redis:7.4.2-alpine3.21
+      - ghcr.io/danny-avila/librechat:v0.8.2-rc3
+      - docker.io/bitnami/mongodb@sha256:0d9e97ec8c99a34b537f1eb2ff348540ba4d27c8212751034117795ba4243163
 
   - name: chat-ingress
     required: true

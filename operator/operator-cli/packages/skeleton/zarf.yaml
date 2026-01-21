@@ -73,6 +73,8 @@ components:
         namespace: app
         files:
           - ../common/google-certificate-issuer.yaml
+    images:
+      - quay.io/jetstack/cert-manager-acmesolver:v1.18.1
   
   - name: self-signed-certificate-authority
     required: true

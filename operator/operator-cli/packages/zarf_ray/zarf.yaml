@@ -3,7 +3,7 @@ metadata:
   name: ray
   version: 1.0.0
   description: |
-    "A Zarf Package for deploying Ray on Kubernetes with Open WebUI."
+    "A Zarf Package for deploying Ray on Kubernetes with LibreChat."
 
 variables:
   - name: HUGGING_FACE_KEY
@@ -78,11 +78,10 @@ components:
     import:
       path: ../zarf_ray_tl
 
-  - name: open-webui
+  - name: librechat
     required: true
     import:
       path: ../zarf_ray_tl
-
 
   - name: chat-ingress
     required: true
