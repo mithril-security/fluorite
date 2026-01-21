@@ -203,7 +203,7 @@ fluorite-os:
     COPY scripts/compute_measurements.py scripts/compute_measurements.py 
     RUN --privileged python3 scripts/compute_measurements.py ./rootfs/build/image
     
-    ARG outputDir = "platform/gcp-shielded-vm/local-tpm/"
+    ARG outputDir = "platform/cloud-vtpm/"
 
     SAVE ARTIFACT os-measurement.json AS LOCAL $outputDir/os-measurement.json
     SAVE ARTIFACT ./rootfs/build/image AS LOCAL $outputDir/image.raw

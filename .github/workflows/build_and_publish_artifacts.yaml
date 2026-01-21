@@ -25,26 +25,28 @@ jobs:
       - name: Earthly Logout
         run: earthly account logout
 
-      - name: Build Shielded VM OS Image
-        run: earthly --strict -P +fluorite-os --outputDir=platform/gcp-shielded-vm/local-tpm/
+      - name: Build Cloud VTPM FluoriteOS Image
+        run: earthly --strict -P +fluorite-os --outputDir=platform/cloud-vtpm/
 
-      - name: Build Shielded VM OS Image with Nvidia Drivers
-        run: earthly --strict -P +fluorite-os --nvidiaDriver=true --outputDir=platform/gcp-shielded-vm/local-tpm-gpu/
+      - name: Build Cloud VTPM FluoriteOS Image with Nvidia Drivers
+        run: earthly --strict -P +fluorite-os --nvidiaDriver=true --outputDir=platform/cloud-vtpm-with-gpu/
       
       - name: Google CVM
-        run: earthly --strict -P +gcp-notarizer-os --outputDir=platform/gcp-cvm-notarizer/
+        run: |
+          earthly --strict -P +gcp-notarizer-os --outputDir=gcp-cvm-notarizer/
+          cp libraries/attestation/gcp-shielded-vm-attestation/gcp_notarizer_measurements.json gcp-cvm-notarizer/gcp_notarizer_measurements.json 
 
-      # - name: Build SVSM Host and Guest Kernel
-      #   run: earthly --strict +svsm-kernel
+      - name: Build SVSM Host and Guest Kernel
+        run: earthly --strict +svsm-kernel
 
-      # - name: Build SVSM OS Image
-      #   run: earthly --strict -P +fluorite-os --nvidiaDriver=true --snpBareMetal=true --outputDir=platform/baremetal-amd-sev/local-svsm/
+      - name: Build SVSM FluoriteOS Image
+        run: earthly --strict -P +fluorite-os --nvidiaDriver=true --snpBareMetal=true --outputDir=platform/baremetal-amd-sev/
 
-      # - name: Build Nginx and Ray packages
-      #   run: earthly --strict -P +zarf-packages
+      - name: Build Nginx and Ray packages
+        run: earthly --strict -P +zarf-packages
       
-      # - name: Build OVMF, the coconut IGVM package, IGVM inst qemu dep, QEMU
-      #   run: earthly --strict +svsm-setup
+      - name: Build OVMF, the coconut IGVM package, IGVM inst qemu dep, QEMU
+        run: earthly --strict +svsm-setup
       
       - id: 'auth'
         uses: 'google-github-actions/auth@v3'
@@ -52,27 +54,33 @@ jobs:
           workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
           service_account: ${{ secrets.GCP_SA_EMAIL }}
 
-      # - name: Package and compress svsm artifacts
-      #   run: |
-      #     tar cvzf svsm.tar.gz igvminst/ qemu/ coconut-svsm/ ./svsm-linux-host ./svsm-linux-guest 
+      - name: Package and compress svsm artifacts
+        run: |
+          tar cvzf svsm.tar.gz igvminst/ qemu/ coconut-svsm/ ./svsm-linux-host ./svsm-linux-guest 
 
       - id: 'upload-os-versions'
         uses: 'google-github-actions/upload-cloud-storage@v3'
         with:
           path: './platform'
           destination: 'fluorite'
-      
-      # - id: 'upload-packages'
-      #   uses: 'google-github-actions/upload-cloud-storage@v3'
-      #   with:
-      #     path: './packages'
-      #     destination: 'fluorite'
 
-      # - id: 'upload-svsm'
-      #   uses: 'google-github-actions/upload-cloud-storage@v3'
-      #   with:
-      #     path: './svsm.tar.gz'
-      #     destination: 'fluorite'
+      - id: 'upload-gcp-notorizer'
+        uses: 'google-github-actions/upload-cloud-storage@v3'
+        with:
+          path: './gcp-cvm-notarizer'
+          destination: 'fluorite'
+      
+      - id: 'upload-packages'
+        uses: 'google-github-actions/upload-cloud-storage@v3'
+        with:
+          path: './packages'
+          destination: 'fluorite'
+
+      - id: 'upload-svsm'
+        uses: 'google-github-actions/upload-cloud-storage@v3'
+        with:
+          path: './svsm.tar.gz'
+          destination: 'fluorite'
       
       - name: Azure login
         uses: azure/login@v2
@@ -105,50 +113,43 @@ jobs:
           uv sync --locked --all-extras --dev
 
           uv run main.py \
-            --os-disk-path ../../platform/gcp-shielded-vm/local-tpm-gpu/image.raw \
+            --os-disk-path ../../platform/cloud-vtpm-with-gpu/image.raw \
             --resource-group-name fluorite-azure-registries \
             --location eastus2 \
             --target-regions francecentral \
             --gallery-image-name FluoriteOS_GPU \
             --sku GPU \
-            --os-measurement $(jq -r .fluoriteos_pcr4 ../../platform/gcp-shielded-vm/local-tpm-gpu/os-measurement.json)
+            --os-measurement $(jq -r .fluoriteos_pcr4 ../../platform/cloud-vtpm-with-gpu/os-measurement.json)
 
           uv run main.py \
-            --os-disk-path ../../platform/gcp-shielded-vm/local-tpm/image.raw \
+            --os-disk-path ../../platform/cloud-vtpm/image.raw \
             --resource-group-name fluorite-azure-registries \
             --location eastus2 \
             --target-regions francecentral \
             --gallery-image-name FluoriteOS \
             --sku Standard \
-            --os-measurement $(jq -r .fluoriteos_pcr4 ../../platform/gcp-shielded-vm/local-tpm/os-measurement.json)
+            --os-measurement $(jq -r .fluoriteos_pcr4 ../../platform/cloud-vtpm/os-measurement.json)
 
-      # - name: Generate SLSA subjects
-      #   id: hash
-      #   run:  |
-      #     sha256sum                                     \
-      #       platform/gcp-shielded-vm/local-tpm/* \
-      #       platform/gcp-shielded-vm/local-tpm-gpu/*        \
-      #        platform/gcp-cvm-notarizer/*
-      #       platform/baremetal-amd-sev/local-svsm/*     \
-      #       packages/*                                  \
-      #       svsm.tar.gz  > ./measurements/artifacts.SHA256SUMS
-      #     echo "digests=$(base64 -w0 ./measurements/artifacts.SHA256SUMS)" >> $GITHUB_OUTPUT
-      
-      # - name: Upload measurements to Release
-      #   uses: softprops/action-gh-release@v2
-      #   if: ${{ github.event_name == 'release' && github.event.action == 'published' }}
-      #   with:
-      #     files: measurements/* # Path to the file in your repo's workspace
-      #     token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Generate SLSA subjects
+        id: hash
+        run:  |
+          sha256sum                                     \
+            platform/cloud-vtpm/*                       \
+            platform/cloud-vtpm-with-gpu/*              \
+            platform/baremetal-amd-sev/*                \
+            gcp-cvm-notarizer/*                         \
+            packages/*                                  \
+            svsm.tar.gz  > ./measurements/artifacts.SHA256SUMS
+          echo "digests=$(base64 -w0 ./measurements/artifacts.SHA256SUMS)" >> $GITHUB_OUTPUT
 
-  # provenance:
-  #   needs: Build-And-Publish
-  #   permissions:
-  #     actions: read # To read the workflow path.
-  #     id-token: write # To sign the provenance.
-  #     contents: write # To add assets to a release.
-  #   uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
-  #   with:
-  #     private-repository: true
-  #     base64-subjects: "${{ needs.Build-And-Publish.outputs.digests }}"
-  #     upload-assets: true # Upload the provenance to Github Releases 
+  provenance:
+    needs: Build-And-Publish
+    permissions:
+      actions: read # To read the workflow path.
+      id-token: write # To sign the provenance.
+      contents: write # To add assets to a release.
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
+    with:
+      private-repository: true
+      base64-subjects: "${{ needs.Build-And-Publish.outputs.digests }}"
+      upload-assets: true # Upload the provenance to Github Releases 
