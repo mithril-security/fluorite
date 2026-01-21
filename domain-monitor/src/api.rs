@@ -338,9 +338,6 @@ impl MyState {
             NodeAttestationDocument::TrustedLaunchVmAttestationDocument(
                 trusted_launch_vm_attestation_document,
             ) => serde_json::to_value(trusted_launch_vm_attestation_document)?,
-            NodeAttestationDocument::GcpCvmAttestationDocument(cvm_attestation_document) => {
-                serde_json::to_value(cvm_attestation_document)?
-            }
             NodeAttestationDocument::GcpShieldedVmAttestationDocument(
                 shielded_vm_attestation_document,
             ) => serde_json::to_value(shielded_vm_attestation_document)?,

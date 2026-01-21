@@ -7,12 +7,10 @@ edition = "2021"
 [features]
 default = ["generate", "verify"]
 generate = [
-    "dep:x509-parser",
     "dep:tss-esapi",
     "attestation/tss-esapi",
 ]
 verify = [
-    "dep:x509-parser",
     "dep:rustls-webpki",
     "tpm-quote/verify",
 ]
@@ -25,7 +23,7 @@ serde_with = { version = "3.14.0", features = ["base64", "hex"] }
 fn-error-context = "0.2.1"
 async-trait = "0.1.83"
 anyhow = { version = "1.0.89" }
-x509-parser = { version = "0.18.0", optional = true }
+x509-parser = { version = "0.18.0" }
 tss-esapi = { version = "7.5.1", optional = true }
 rustls-webpki = { version = "0.103.6", optional = true }
 sha2 = "0.10.8"

@@ -8,7 +8,7 @@ rustls = { version = "0.23.23", features = ["ring"] }
 x509-parser = { version = "0.18.0", features = ["verify"] }
 attestation = { path = "../attestation/attestation", features = ["tss-esapi"] }
 tpm-quote = { path = "../attestation/tpm-quote" }
-provisioning-structs = { path = "../provisioning-structs" }
+provisioning-structs = { path = "../provisioning-structs", features = ["validate-attestation-documents"] }
 anyhow = "1.0.97"
 ref-cast = "1.0.24"
 log = "0.4.27"

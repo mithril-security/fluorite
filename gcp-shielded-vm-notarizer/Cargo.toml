@@ -38,7 +38,6 @@ gcp_auth = "0.12"
 attestation = { path = "../libraries/attestation/attestation", features = ["tss-esapi"] }
 gcp-cvm-attestation = { path = "../libraries/attestation/gcp-cvm-attestation", features = ["generate"] }
 tpm-quote = { path = "../libraries/attestation/tpm-quote" }
-provisioning-structs = { path = "../libraries/provisioning-structs" }
 
 
 # Configuration

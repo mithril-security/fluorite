@@ -28,7 +28,6 @@ use rustls_pki_types::pem::PemObject;
 use rustls_pki_types::CertificateDer;
 use std::net::SocketAddr;
 use std::sync::Arc;
-use tokio::sync::RwLock;
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 

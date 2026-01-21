@@ -8,7 +8,6 @@ use axum::{Json, extract::State, response::IntoResponse};
 use chrono::Utc;
 use log::info;
 use serde::{Deserialize, Serialize};
-use tokio::sync::RwLock;
 
 use crate::attestation::{
     NotarizerAttestation, NotarizerState, NotarizedShieldedVmIdentityPayload,

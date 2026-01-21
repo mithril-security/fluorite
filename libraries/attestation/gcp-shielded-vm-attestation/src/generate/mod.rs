@@ -7,9 +7,10 @@
 
 use crate::AKTEMPLATE_NVINDEX_ECC;
 use crate::{NotarizeResponse, ShieldedVmAttestationDocument};
-use anyhow::Context;
 use async_trait::async_trait;
 use attestation::AsyncGenerateAttestationDocument;
+use fn_error_context::context;
+use anyhow::Context;
 use tpm_quote::generate::{tpm_context, AttestationKeyHandle};
 use tss_esapi::handles::TpmHandle;
 use tss_esapi::structures::PcrSelectionList;
@@ -22,17 +23,22 @@ const USERDATA_METADATA_KEY: &str = "user-data";
 /// Generator for Shielded VM attestation documents
 pub struct ShieldedVmAttestationDocumentGenerator {
     tpm_ctx: tss_esapi::Context,
+    notarizer_endorsement: NotarizeResponse
 }
 
 impl ShieldedVmAttestationDocumentGenerator {
-    /// Create a new generator using the default metadata key
-    pub fn new() -> anyhow::Result<Self> {
-        let tpm_ctx = tpm_context().context("Failed to create TPM context")?;
-        Ok(Self { tpm_ctx })
+    #[context("Failed to create a ShieldedVmAttestationDocumentGenerator")]
+    pub async fn new_with_default() -> anyhow::Result<Self> {
+        Ok(Self::new_with_tpm_ctx(tpm_context()?).await?)
+    }
+
+    pub async fn new_with_tpm_ctx(tpm_ctx: tss_esapi::Context) -> anyhow::Result<Self> {
+        Ok(Self { tpm_ctx, notarizer_endorsement: Self::fetch_notarizer_endorsement().await? })
     }
 
     /// Fetch the notarizer endorsement from `user-data` in instance metadata
-    async fn fetch_notarizer_endorsement(&self) -> anyhow::Result<NotarizeResponse> {
+    #[context("Failed to fetch notarizer endorsement from user-data in metadata")]
+    async fn fetch_notarizer_endorsement() -> anyhow::Result<NotarizeResponse> {
         let client = reqwest::Client::new();
 
         let url = format!(
@@ -86,12 +92,6 @@ impl AsyncGenerateAttestationDocument for ShieldedVmAttestationDocumentGenerator
         &mut self,
         pcr_selection_list: &PcrSelectionList,
     ) -> anyhow::Result<Self::AttestationDocument> {
-        // Get the notarizer endorsement from user-data in instance metadata
-        let notarizer_endorsement = self
-            .fetch_notarizer_endorsement()
-            .await
-            .context("Failed to fetch notarizer endorsement from user-data in metadata")?;
-
         let mut ak_handle = AttestationKeyHandle::create_from_template_at_nvindex(
             &mut self.tpm_ctx,
             AKTEMPLATE_NVINDEX_ECC.try_into()?,
@@ -108,7 +108,7 @@ impl AsyncGenerateAttestationDocument for ShieldedVmAttestationDocumentGenerator
 
         Ok(ShieldedVmAttestationDocument {
             quote,
-            notarizer_endorsement,
+            notarizer_endorsement: self.notarizer_endorsement.clone(),
         })
     }
 }

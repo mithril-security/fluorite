@@ -45,7 +45,8 @@ mkosi-builder:
         cpio \
         zstd \
         kmod \
-        reprepro
+        reprepro \
+        jq
     
     COPY +uv/uv /usr/local/bin/uv
     RUN uv tool install git+https://github.com/systemd/mkosi.git@v25.3
@@ -169,14 +170,18 @@ setup-rootfs:
     RUN uv tool install render_template/
     
     ARG debug = false
+    ARG debug_ssh_key = ""
     ARG nvidiaDriver = false
     ARG snpBareMetal = false
 
     RUN echo "debug: $debug" > config.yaml
+    RUN echo "debug_ssh_key: \"$debug_ssh_key\"" >> config.yaml
     RUN echo "nvidiaDriver: $nvidiaDriver" >> config.yaml
     RUN echo "snpBareMetal: $snpBareMetal" >> config.yaml
 
     RUN /root/.local/bin/render_template ./config.yaml ./rootfs/mkosi.conf.j2
+    RUN /root/.local/bin/render_template ./config.yaml ./rootfs/mkosi.postinst.j2
+    RUN chmod +x ./rootfs/mkosi.postinst
 
     SAVE ARTIFACT ./rootfs
 
@@ -681,6 +686,15 @@ gcp-notarizer-os:
     RUN --privileged python3 scripts/compute_measurements.py ./rootfs/build/image
     
     ARG outputDir = "platform/gcp-cvm-notarizer/"
+
+    COPY measurements/measurements_gcp_cvm.json measurements/measurements_gcp_cvm.json
+    RUN jq -n \
+        --slurpfile pcr_data measurements/measurements_gcp_cvm.json \
+        --slurpfile os_data os-measurement.json \
+        '{golden_pcr_data: $pcr_data[0], expected_os_image_measurement: $os_data[0].fluoriteos_pcr4}' \
+        > gcp_notarizer_measurements.json
+
+    SAVE ARTIFACT gcp_notarizer_measurements.json AS LOCAL libraries/attestation/gcp-shielded-vm-attestation/gcp_notarizer_measurements.json
 
     SAVE ARTIFACT os-measurement.json AS LOCAL $outputDir/os-measurement.json
     SAVE ARTIFACT ./rootfs/build/image AS LOCAL $outputDir/image.raw

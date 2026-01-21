@@ -36,10 +36,10 @@ attestation = { path = "../../libraries/attestation/attestation", features = [
     "tss-esapi",
 ] }
 tpm-quote = { path = "../../libraries/attestation/tpm-quote" }
-azure-trusted-launch-attestation = { path = "../../libraries/attestation/azure-trusted-launch-attestation" }
-qemu-attestation = { path = "../../libraries/attestation/qemu-attestation" }
-svsm-sev-attestation = { path = "../../libraries/attestation/svsm-sev-attestation" }
-azure-cvm-attestation = { path = "../../libraries/attestation/azure-cvm-attestation" }
-gcp-shielded-vm-attestation = { path = "../../libraries/attestation/gcp-shielded-vm-attestation" }
+azure-trusted-launch-attestation = { path = "../../libraries/attestation/azure-trusted-launch-attestation", default-features = false, features = ["generate"] }
+qemu-attestation = { path = "../../libraries/attestation/qemu-attestation", default-features = false, features = ["generate"] }
+svsm-sev-attestation = { path = "../../libraries/attestation/svsm-sev-attestation", default-features = false, features = ["generate"] }
+azure-cvm-attestation = { path = "../../libraries/attestation/azure-cvm-attestation", default-features = false, features = ["generate"] }
+gcp-shielded-vm-attestation = { path = "../../libraries/attestation/gcp-shielded-vm-attestation", default-features = false, features = ["generate"] }
 provisioning-structs = { path = "../../libraries/provisioning-structs" }
 serde_yaml = "0.9.34"

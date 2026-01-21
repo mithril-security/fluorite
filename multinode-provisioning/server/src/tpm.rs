@@ -93,7 +93,7 @@ async fn gcp_shielded_vm_get_attestation_document() -> anyhow::Result<NodeAttest
         .build()?;
 
     Ok(NodeAttestationDocument::GcpShieldedVmAttestationDocument(
-        ShieldedVmAttestationDocumentGenerator::new()?
+        ShieldedVmAttestationDocumentGenerator::new_with_default().await?
             .generate_attestation_document(&pcr_selection_list)
             .await?,
     ))
@@ -107,7 +107,6 @@ pub(crate) async fn get_attestation_document(
         AttestationBackend::AzureTrustedLaunchVM => azure_get_attestation_document().await,
         AttestationBackend::SvsmVtpm => baremetal_get_attestation_document().await,
         AttestationBackend::AzureConfidentialVM => azure_cvm_get_attestation_document().await,
-        AttestationBackend::GcpConfidentialVM => bail!("GcpConfidentialVM attestation not implemented in this function"),
         AttestationBackend::GcpShieldedVM => gcp_shielded_vm_get_attestation_document().await,
     }
 }

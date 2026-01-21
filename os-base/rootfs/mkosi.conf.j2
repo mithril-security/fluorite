@@ -20,10 +20,7 @@ Timezone=UTC
 CleanPackageMetadata=true
 
 {% if debug %}
-RootPassword=474d31b2586da199de499f46732a6a2e05cb7ed40eff5ce137f8084e0b60820f
-{% else %}
-# Remove files that allow to to ssh in as root
-RemoveFiles=/etc/ssh/sshd_config.d/10-root-login.conf
+RootPassword=root
 {% endif %}
 
 {% if snpBareMetal %}

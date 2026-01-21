@@ -1,41 +1,37 @@
-use std::collections::HashMap;
+// Standard library imports
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::fmt::Display;
+use std::fs;
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use anyhow::Context as _;
-use anyhow::bail;
-use anyhow::ensure;
-use attestation::VerifyAttestationDocument;
-use attestation::eventlog::Event;
-use attestation::eventlog::EventLog;
-use attestation::eventlog::ParsedEventLog;
-use attestation::AsyncVerifyAttestationDocument;
-use azure_trusted_launch_attestation::TrustedLaunchVmAttestationDocument;
-use azure_cvm_attestation::common::ConfidentialVmAttestationDocument;
-use gcp_cvm_attestation::CvmAttestationDocument as GcpCvmAttestationDocument;
-use gcp_shielded_vm_attestation::ShieldedVmAttestationDocument as GcpShieldedVmAttestationDocument;
-use dryoc::sign::PublicKey;
-use dryoc::sign::SignedMessage;
-use dryoc::types::StackByteArray;
-use qemu_attestation::QEMUVmAttestationDocument;
-use rustls_pki_types::UnixTime;
+// External crate imports
+use anyhow::{bail, ensure, Context as _};
 use serde::{Deserialize, Serialize};
-use tokio::runtime::Handle;
-use std::fs;
-use sha2::Sha256;
 use sha2::digest::generic_array::GenericArray;
-use tpm_quote::common::PcrData;
-use svsm_sev_attestation::SvsmVtpmAttestationDocument;
-use tpm_quote::common::Digest;
-use tpm_quote::common::HashingAlgorithm;
-use tpm_quote::common::PcrIndex;
-use tpm_quote::common::PcrSlot;
-use tpm_quote::common::SanitizedPcrData;
+use sha2::Sha256;
+use tokio::runtime::Handle;
 use tokio::task;
 
-use std::collections::HashSet;
+// Dryoc (crypto)
+use dryoc::sign::{PublicKey, SignedMessage};
+use dryoc::types::StackByteArray;
+
+// Rustls (certificate/crypto)
+use rustls_pki_types::UnixTime;
+
+// TPM, attestation, and related domain imports
+use attestation::eventlog::{Event, EventLog, ParsedEventLog};
+use attestation::{AsyncVerifyAttestationDocument, VerifyAttestationDocument};
+use azure_cvm_attestation::common::ConfidentialVmAttestationDocument;
+use azure_trusted_launch_attestation::TrustedLaunchVmAttestationDocument;
+use gcp_shielded_vm_attestation::ShieldedVmAttestationDocument as GcpShieldedVmAttestationDocument;
+use qemu_attestation::QEMUVmAttestationDocument;
+use svsm_sev_attestation::SvsmVtpmAttestationDocument;
+use tpm_quote::common::{
+    Digest, HashingAlgorithm, PcrData, PcrIndex, PcrSlot, SanitizedPcrData,
+};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum TpmEvent {
@@ -75,7 +71,6 @@ pub enum NodeAttestationDocument {
     SvsmVtpmAttestationDocument(SvsmVtpmAttestationDocument),
     TrustedLaunchVmAttestationDocument(TrustedLaunchVmAttestationDocument),
     ConfidentialVMAttestationDocument(ConfidentialVmAttestationDocument),
-    GcpCvmAttestationDocument(GcpCvmAttestationDocument),
     GcpShieldedVmAttestationDocument(GcpShieldedVmAttestationDocument),
 }
 
@@ -94,9 +89,6 @@ impl Display for NodeAttestationDocument {
             NodeAttestationDocument::ConfidentialVMAttestationDocument(_) => {
                 write!(f, "AttestationDocument::ConfidentialVMAttestationDocument")
             }
-            NodeAttestationDocument::GcpCvmAttestationDocument(_) => {
-                write!(f, "AttestationDocument::GcpCvmAttestationDocument")
-            }
             NodeAttestationDocument::GcpShieldedVmAttestationDocument(_) => {
                 write!(f, "AttestationDocument::GcpShieldedVmAttestationDocument")
             }
@@ -109,6 +101,7 @@ pub struct NodeInfo {
     pub pcr_data: SanitizedPcrData,
 }
 
+#[cfg(feature = "validate-attestation-documents")]
 pub fn node_attestation_document_validator(
     attestation: &NodeAttestationDocument,
 ) -> anyhow::Result<NodeInfo> {
@@ -136,10 +129,6 @@ pub fn node_attestation_document_validator(
         },
         NodeAttestationDocument::SvsmVtpmAttestationDocument(attestation_document) => NodeInfo {
             attestation_backend: AttestationBackend::SvsmVtpm,
-            pcr_data: attestation_document.verify(UnixTime::now())?,
-        },
-        NodeAttestationDocument::GcpCvmAttestationDocument(attestation_document) => NodeInfo {
-            attestation_backend: AttestationBackend::GcpConfidentialVM,
             pcr_data: attestation_document.verify(UnixTime::now())?,
         },
         NodeAttestationDocument::GcpShieldedVmAttestationDocument(attestation_document) => NodeInfo {
@@ -177,6 +166,7 @@ pub const OS_MEASUREMENT_SLOT: PcrIndex = PcrIndex {
 /// They should return an error to signal that the policy is not respected
 pub trait NodePolicy = Fn(&NodeWithEventsInfo) -> anyhow::Result<()>;
 
+#[cfg(feature = "validate-attestation-documents")]
 pub fn node_attestation_document_with_events_validator(
     attestation: &NodeAttestationDocumentWithEvents,
 ) -> anyhow::Result<NodeWithEventsInfo> {
@@ -479,7 +469,6 @@ pub enum AttestationBackend {
     SvsmVtpm,
     AzureTrustedLaunchVM,
     AzureConfidentialVM,
-    GcpConfidentialVM,
     GcpShieldedVM,
 }
 
@@ -492,12 +481,12 @@ impl FromStr for AttestationBackend{
             "QEMU" => Ok(AttestationBackend::QEMU),
             "AzureTrustedLaunchVM" => Ok(AttestationBackend::AzureTrustedLaunchVM),
             "AzureConfidentialVM" => Ok(AttestationBackend::AzureConfidentialVM),
-            "GcpConfidentialVM" => Ok(AttestationBackend::GcpConfidentialVM),
             "GcpShieldedVM" => Ok(AttestationBackend::GcpShieldedVM),
-            _ => Err(anyhow::format_err!("Choose an attestation backend between SvsmVtpm, QEMU, AzureTrustedLaunchVM, AzureConfidentialVM, GcpConfidentialVM, GcpShieldedVM. "))
+            _ => Err(anyhow::format_err!("Choose an attestation backend between SvsmVtpm, QEMU, AzureTrustedLaunchVM, AzureConfidentialVM, GcpShieldedVM. "))
         }
     }
 }
+
 impl Display for AttestationBackend {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match &self {
@@ -508,8 +497,6 @@ impl Display for AttestationBackend {
             AttestationBackend::AzureTrustedLaunchVM => write!(f, "AzureTrustedLaunchVM"),
 
             AttestationBackend::AzureConfidentialVM => write!(f, "AzureConfidentialVM"),
-
-            AttestationBackend::GcpConfidentialVM => write!(f, "GcpConfidentialVM"),
 
             AttestationBackend::GcpShieldedVM => write!(f, "GcpShieldedVM"),
         }

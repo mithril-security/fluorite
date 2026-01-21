@@ -54,10 +54,6 @@ const ALL_SLOTS: &[PcrSlot; 24] = &[
     PcrSlot::Slot23,
 ];
 
-// ============================================================================
-// Event Types for the Notarizer
-// ============================================================================
-
 /// Events that the notarizer logs to the TPM
 #[derive(Serialize, Deserialize, Clone, Debug, From, TryInto)]
 pub enum NotarizerEvent {

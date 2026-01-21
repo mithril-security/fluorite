@@ -5,7 +5,7 @@ edition = "2024"
 
 [features]
 default = ["generate", "verify"]
-generate = ["dep:tss-esapi", "attestation/tss-esapi"]
+generate = ["dep:tss-esapi", "attestation/tss-esapi", "dep:rustls-pki-types"]
 verify = [
     "dep:const-oid",
     "dep:rustls-webpki",
