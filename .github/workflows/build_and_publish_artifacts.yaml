@@ -41,18 +41,18 @@ jobs:
           earthly --strict -P +gcp-notarizer-os --outputDir=gcp-cvm-notarizer/
           cp libraries/attestation/gcp-shielded-vm-attestation/gcp_notarizer_measurements.json gcp-cvm-notarizer/gcp_notarizer_measurements.json
 
-      - name: Build SVSM Host and Guest Kernel
-        run: earthly --strict +svsm-kernel
+      # - name: Build SVSM Host and Guest Kernel
+      #   run: earthly --strict +svsm-kernel
 
-      - name: Build FluoriteOS Image for AMD SEV-SNP Baremetal platform
-        run: earthly --strict -P +fluorite-os --nvidiaDriver=true --snpBareMetal=true --outputDir=fluorite-os/baremetal-amd-sev/
+      # - name: Build FluoriteOS Image for AMD SEV-SNP Baremetal platform
+      #   run: earthly --strict -P +fluorite-os --nvidiaDriver=true --snpBareMetal=true --outputDir=fluorite-os/baremetal-amd-sev/
 
-      - name: Build OVMF, the coconut IGVM package, IGVM inst qemu dep, QEMU
-        run: earthly --strict +svsm-setup
+      # - name: Build OVMF, the coconut IGVM package, IGVM inst qemu dep, QEMU
+      #   run: earthly --strict +svsm-setup
 
-      - name: Package and compress SVSM artifacts
-        run: |
-          tar -czf fluorite-os/baremetal-amd-sev/svsm.tar.gz igvminst/ qemu/ coconut-svsm/ ./svsm-linux-host ./svsm-linux-guest
+      # - name: Package and compress SVSM artifacts
+      #   run: |
+      #     tar -czf fluorite-os/baremetal-amd-sev/svsm.tar.gz igvminst/ qemu/ coconut-svsm/ ./svsm-linux-host ./svsm-linux-guest
 
       - name: Set version for uploads
         id: version
@@ -181,10 +181,17 @@ jobs:
           sha256sum                                     \
             fluorite-os/cloud-vtpm/*                    \
             fluorite-os/cloud-vtpm-with-gpu/*           \
-            fluorite-os/baremetal-amd-sev/*             \
             gcp-cvm-notarizer/*                         \
             > artifacts.SHA256SUMS
           echo "digests=$(base64 -w0 artifacts.SHA256SUMS)" >> $GITHUB_OUTPUT
+
+          # sha256sum                                     \
+          #   fluorite-os/cloud-vtpm/*                    \
+          #   fluorite-os/cloud-vtpm-with-gpu/*           \
+          #   fluorite-os/baremetal-amd-sev/*             \
+          #   gcp-cvm-notarizer/*                         \
+          #   > artifacts.SHA256SUMS
+          # echo "digests=$(base64 -w0 artifacts.SHA256SUMS)" >> $GITHUB_OUTPUT
 
   provenance:
     needs: build-and-publish
