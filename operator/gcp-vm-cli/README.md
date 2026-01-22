@@ -34,7 +34,7 @@ uv run main.py \
     --bucket=my-gcs-bucket \
     --operator-cert-path=./operator.pem \
     --operator-key-path=./operator-key.pem \
-    --image-shielded-vm-path=./platform/gcp-shielded-vm/local-tpm/image.raw \
+    --image-shielded-vm-path=./fluorite-os/cloud-vtpm/image.raw \
     --num-servers=1
 ```
 
@@ -48,8 +48,8 @@ uv run main.py \
 | `--bucket` | Yes | GCS bucket for storing OS images |
 | `--operator-cert-path` | Yes | Path to the operator PEM certificate |
 | `--operator-key-path` | Yes | Path to the operator private key |
-| `--image-notarizer-path` | No | Path to notarizer image.raw (default: `platform/gcp-cvm-notarizer/image.raw`) |
-| `--image-shielded-vm-path` | No | Path to Shielded VM image.raw (default: `platform/gcp-shielded-vm/local-tpm/image.raw`) |
+| `--image-notarizer-path` | No | Path to notarizer image.raw (default: `gcp-cvm-notarizer/disk.raw`) |
+| `--image-shielded-vm-path` | No | Path to Shielded VM image.raw (default: `fluorite-os/cloud-vtpm/disk.raw`) |
 | `--num-servers` | No | Number of server nodes (default: 1) |
 | `--num-agents` | No | Number of agent nodes (default: 0) |
 | `--cvm-name` | No | Name for the CVM (default: `notarizer-cvm`) |

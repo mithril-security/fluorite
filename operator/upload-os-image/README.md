@@ -33,11 +33,11 @@ curl -sL https://aka.ms/InstallAzureCLIDeb | bash
 Running:
 ```sh
 uv run main.py \
-    --os-disk-path ../../platform/gcp-shielded-vm/local-tpm/image.raw \
+    --os-disk-path ../../fluorite-os/cloud-vtpm/disk.raw \
     --resource-group-name fluorite-azure-registries \
     --location eastus2 \
     --target-regions francecentral \
-    --os-measurement $(jq -r .fluoriteos_pcr4 ../../platform/gcp-shielded-vm/local-tpm/os-measurement.json)
+    --os-measurement $(jq -r .fluoriteos_pcr4 ../../fluorite-os/cloud-vtpm/os-measurement.json)
 ```
 
 ### Note on target regions

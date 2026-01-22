@@ -34,7 +34,7 @@ An example command to provision a cluster:
 ```sh
 cargo run --release -- \
   --zarf-package-path ../../packages/zarf-package-nginx-amd64-1.0.0.tar.zst \
-  --os-measurement $(jq -r .fluoriteos_pcr4 ../../platform/gcp-shielded-vm/local-tpm/os-measurement.json) \
+  --os-measurement $(jq -r .fluoriteos_pcr4 ../../fluorite-os/cloud-vtpm/os-measurement.json) \
   --platform-measurements-path ../../measurements/measurements_azure.json \
   --operator-cert-path ../certificates/cert.pem \
   --operator-private-key-path ../certificates/key.pem \
@@ -92,7 +92,7 @@ Afterwards it's enough to use the following command to provision a cluster:
 ``` sh
 cargo run --release -- \
   --zarf-package-path ../../packages/zarf-package-ray-amd64-1.0.0.tar.zst \
-  --os-measurement $(jq -r .fluoriteos_pcr4 ../../platform/gcp-shielded-vm/local-tpm/os-measurement.json) \
+  --os-measurement $(jq -r .fluoriteos_pcr4 ../../fluorite-os/cloud-vtpm/os-measurement.json) \
   --platform-measurements-path ../../measurements/measurements_azure.json \
   --operator-cert-path ../certificates/cert.pem \
   --operator-private-key-path ../certificates/key.pem \

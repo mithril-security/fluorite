@@ -24,7 +24,7 @@ QEMU_LIB_DIR_PATH="./igvminst/usr/lib/x86_64-linux-gnu/"
 
 SEED_IMG_PATH="./seed.img"
 
-DISK_PATH="./platform/baremetal-amd-sev/local-svsm/image.raw"
+DISK_PATH="./fluorite-os/baremetal-amd-sev/disk.raw"
 
 CONFIDENTIAL_VM=
 VIRTUALIZATION_TYPE=

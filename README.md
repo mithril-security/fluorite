@@ -32,7 +32,7 @@ earthly -i -P +mithril-os-tpm --OS_CONFIG='config-tpm.yaml'
 - `debug`: is insecure and should be used only during development. By default is set to `false` and produces a production ready image. If set to `true`, it installs utility tools such as curl, vim, grep,... and it allows enables console access via a root user with password "root" and to ssh as root.
 - `nvidiaDriver`: installs nvidia drivers `nvidia-driver-580-open` and the `nvidia-container-toolkit`.
 - `snpBareMetal`: Uses the coconut svsm kernel. Needed for the AMD SEV-SNP Baremetal platform.
-- `outputDir`: Choose where the `image.raw` will be saved. By default it's `platform/gcp-shielded-vm/local-tpm/`.
+- `outputDir`: Choose where the `disk.raw` will be saved. By default it's `fluorite-os/cloud-vtpm/`.
 
 
 ## Repository structure

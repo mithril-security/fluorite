@@ -47,8 +47,8 @@ logging.basicConfig(
 
 # Paths relative to the repository root
 REPO_ROOT = Path(__file__).parent.parent.parent
-DEFAULT_NOTARIZER_IMAGE_PATH = REPO_ROOT / "platform" / "gcp-cvm-notarizer" / "image.raw"
-DEFAULT_SHIELDED_VM_IMAGE_PATH = REPO_ROOT / "platform" / "gcp-shielded-vm" / "local-tpm" / "image.raw"
+DEFAULT_NOTARIZER_IMAGE_PATH = REPO_ROOT / "gcp-cvm-notarizer" / "disk.raw"
+DEFAULT_SHIELDED_VM_IMAGE_PATH = REPO_ROOT / "fluorite-os" / "cloud-vtpm" / "disk.raw"
 
 # ============================================================================
 # Network Port Configuration
@@ -830,14 +830,14 @@ if __name__ == "__main__":
         "--image-notarizer-path",
         type=str,
         default=str(DEFAULT_NOTARIZER_IMAGE_PATH),
-        help=f"Path to the notarizer image.raw file (default: {DEFAULT_NOTARIZER_IMAGE_PATH})",
+        help=f"Path to the notarizer disk.raw file (default: {DEFAULT_NOTARIZER_IMAGE_PATH})",
     )
     
     parser.add_argument(
         "--image-shielded-vm-path",
         type=str,
         default=str(DEFAULT_SHIELDED_VM_IMAGE_PATH),
-        help=f"Path to the Shielded VM image.raw file",
+        help=f"Path to the Shielded VM disk.raw file",
     )
 
     parser.add_argument(

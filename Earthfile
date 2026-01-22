@@ -201,17 +201,17 @@ fluorite-os:
 
     # Compute the golden PCR4 for the os image and save
     COPY scripts/compute_measurements.py scripts/compute_measurements.py 
-    RUN --privileged python3 scripts/compute_measurements.py ./rootfs/build/image
+    RUN --privileged python3 scripts/compute_measurements.py ./rootfs/build/disk
     
     # Compress the image for image creation on Google Cloud
-    RUN tar -czvhf ./rootfs/build/image.tar.gz ./rootfs/build/image
+    RUN tar -czf ./rootfs/build/disk.tar.gz -C ./rootfs/build/ disk.raw
 
     ARG outputDir = "platform/cloud-vtpm/"
 
     SAVE ARTIFACT os-measurement.json AS LOCAL $outputDir/os-measurement.json
-    SAVE ARTIFACT ./rootfs/build/image.tar.gz AS LOCAL $outputDir/image.tar.gz
-    SAVE ARTIFACT ./rootfs/build/image AS LOCAL $outputDir/image.raw
-    SAVE ARTIFACT ./rootfs/build/image.manifest AS LOCAL $outputDir/image.manifest
+    SAVE ARTIFACT ./rootfs/build/disk.tar.gz AS LOCAL $outputDir/disk.tar.gz
+    SAVE ARTIFACT ./rootfs/build/disk AS LOCAL $outputDir/disk.raw
+    SAVE ARTIFACT ./rootfs/build/disk.manifest AS LOCAL $outputDir/disk.manifest
 
 
 cert-manager-plugin-builder:
@@ -687,7 +687,7 @@ gcp-notarizer-os:
 
     # Compute the golden PCR4 for the os image and save
     COPY scripts/compute_measurements.py scripts/compute_measurements.py 
-    RUN --privileged python3 scripts/compute_measurements.py ./rootfs/build/image
+    RUN --privileged python3 scripts/compute_measurements.py ./rootfs/build/disk
 
     COPY measurements/measurements_gcp_cvm.json measurements/measurements_gcp_cvm.json
     RUN jq -n \
@@ -697,13 +697,13 @@ gcp-notarizer-os:
         > gcp_notarizer_measurements.json
 
     # Compress the image for image creation on Google Cloud
-    RUN tar -czvhf ./rootfs/build/image.tar.gz ./rootfs/build/image
+    RUN tar -czf ./rootfs/build/disk.tar.gz -C ./rootfs/build/ disk.raw
 
     SAVE ARTIFACT gcp_notarizer_measurements.json AS LOCAL libraries/attestation/gcp-shielded-vm-attestation/gcp_notarizer_measurements.json
 
     ARG outputDir = "./gcp-cvm-notarizer/"
 
     SAVE ARTIFACT os-measurement.json AS LOCAL $outputDir/os-measurement.json
-    SAVE ARTIFACT ./rootfs/build/image.tar.gz AS LOCAL $outputDir/image.tar.gz
-    SAVE ARTIFACT ./rootfs/build/image AS LOCAL $outputDir/image.raw
-    SAVE ARTIFACT ./rootfs/build/image.manifest AS LOCAL $outputDir/image.manifest
+    SAVE ARTIFACT ./rootfs/build/disk.tar.gz AS LOCAL $outputDir/disk.tar.gz
+    SAVE ARTIFACT ./rootfs/build/disk AS LOCAL $outputDir/disk.raw
+    SAVE ARTIFACT ./rootfs/build/disk.manifest AS LOCAL $outputDir/disk.manifest
