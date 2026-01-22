@@ -203,9 +203,13 @@ fluorite-os:
     COPY scripts/compute_measurements.py scripts/compute_measurements.py 
     RUN --privileged python3 scripts/compute_measurements.py ./rootfs/build/image
     
+    # Compress the image for image creation on Google Cloud
+    RUN tar -czvhf ./rootfs/build/image.tar.gz ./rootfs/build/image
+
     ARG outputDir = "platform/cloud-vtpm/"
 
     SAVE ARTIFACT os-measurement.json AS LOCAL $outputDir/os-measurement.json
+    SAVE ARTIFACT ./rootfs/build/image.tar.gz AS LOCAL $outputDir/image.tar.gz
     SAVE ARTIFACT ./rootfs/build/image AS LOCAL $outputDir/image.raw
     SAVE ARTIFACT ./rootfs/build/image.manifest AS LOCAL $outputDir/image.manifest
 
@@ -684,8 +688,6 @@ gcp-notarizer-os:
     # Compute the golden PCR4 for the os image and save
     COPY scripts/compute_measurements.py scripts/compute_measurements.py 
     RUN --privileged python3 scripts/compute_measurements.py ./rootfs/build/image
-    
-    ARG outputDir = "platform/gcp-cvm-notarizer/"
 
     COPY measurements/measurements_gcp_cvm.json measurements/measurements_gcp_cvm.json
     RUN jq -n \
@@ -694,8 +696,14 @@ gcp-notarizer-os:
         '{golden_pcr_data: $pcr_data[0], expected_os_image_measurement: $os_data[0].fluoriteos_pcr4}' \
         > gcp_notarizer_measurements.json
 
+    # Compress the image for image creation on Google Cloud
+    RUN tar -czvhf ./rootfs/build/image.tar.gz ./rootfs/build/image
+
     SAVE ARTIFACT gcp_notarizer_measurements.json AS LOCAL libraries/attestation/gcp-shielded-vm-attestation/gcp_notarizer_measurements.json
 
+    ARG outputDir = "./gcp-cvm-notarizer/"
+
     SAVE ARTIFACT os-measurement.json AS LOCAL $outputDir/os-measurement.json
+    SAVE ARTIFACT ./rootfs/build/image.tar.gz AS LOCAL $outputDir/image.tar.gz
     SAVE ARTIFACT ./rootfs/build/image AS LOCAL $outputDir/image.raw
     SAVE ARTIFACT ./rootfs/build/image.manifest AS LOCAL $outputDir/image.manifest
