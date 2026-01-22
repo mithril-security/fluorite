@@ -19,13 +19,16 @@ variables:
     description: The base64 encoded private key that will be used to sign the CSR by the policy approver plugin
     sensitive: true
   - name: ATS_ENDPOINT
-    description: The Endpoint of the Attestation Transparency Service where CSR are sent (ex. https://example.com:8080/verify_csr)
+    description: The Endpoint of the Attestation Transparency Service where CSR are sent (e.g. https://example.com:8080/verify_csr)
     sensitive: true
   - name: ATS_PASSWORD
-    description: The Password for Endpoint of the Attestation Transparency Service where CSR are sent (ex. https://example.com:8080/verify_csr)
+    description: The Password for Endpoint of the Attestation Transparency Service where CSR are sent (e.g. https://example.com:8080/verify_csr)
     sensitive: true
-  - name: GOOGLE_PUBLIC_CA_KEY
-    description: The key used to authenticate to Google Public CA service
+  - name: PUBLIC_CA_KEY
+    description: The key used to authenticate to Public CA service (e.g. Google, Let's Encrypt, ...)
+    sensitive: true
+  - name: PUBLIC_CA_EMAIL
+    description: The email used to authenticate to Public CA service (e.g. Google, Let's Encrypt, ...)
     sensitive: true
   - name: HOSTNAME
     description: The hostname to use
