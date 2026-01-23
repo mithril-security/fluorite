@@ -110,7 +110,7 @@ jobs:
             --operator-pem-cert-path ${{ env.DIR }}/certificates/cert.pem \
             --vm-security-type TrustedLaunch \
             --image-resource-id "${{ env.AZURE_IMAGE }}" \
-            --output_path ${{ env.DIR }}/cluster.json
+            --output-path ${{ env.DIR }}/cluster.json
 
       - name: Create A record for master VM
         uses: azure/cli@v2
