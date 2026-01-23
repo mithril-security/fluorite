@@ -39,7 +39,7 @@ pub fn create_or_get_certificates(certificate_dir: PathBuf, force: bool) -> anyh
             certificate_dir.display()
         );
 
-        fs::create_dir(&certificate_dir).context(format!(
+        fs::create_dir_all(&certificate_dir).context(format!(
             "Error creating certificates directory {}",
             certificate_dir.display()
         ))?;

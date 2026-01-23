@@ -53,7 +53,7 @@ jobs:
 
       - name: Generate Operator Certificates
         run: |
-          ./operator/generate-certificates-cli/target/release/generate-certificates-cli --cert-directory-path ${{ env.DIR }}/certificates
+          ./operator/generate-certificates-cli/target/release/generate-certificates-cli --force --cert-directory-path ${{ env.DIR }}/certificates
 
       - name: Azure login
         uses: azure/login@v2
