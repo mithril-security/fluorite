@@ -35,22 +35,22 @@ jobs:
           earthly --strict -P +fluorite-os --outputDir=fluorite-os/cloud-vtpm/
           
           # Compress the image for image creation on Google Cloud
-          tar -czf fluorite-os/cloud-vtpm/disk.raw.tar.gz -C fluorite-os/cloud-vtpm/ disk.raw --owner=ubuntu --group=ubuntu
+          tar -Sczf fluorite-os/cloud-vtpm/disk.raw.tar.gz -C fluorite-os/cloud-vtpm/ disk.raw
 
-      - name: Build FluoriteOS image for cloud vTPM with Nvidia drivers
-        run: |
-          earthly --strict -P +fluorite-os --nvidiaDriver=true --outputDir=fluorite-os/cloud-vtpm-with-gpu/
+      # - name: Build FluoriteOS image for cloud vTPM with Nvidia drivers
+      #   run: |
+      #     earthly --strict -P +fluorite-os --nvidiaDriver=true --outputDir=fluorite-os/cloud-vtpm-with-gpu/
 
-          # Compress the image for image creation on Google Cloud
-          tar -czf fluorite-os/cloud-vtpm-with-gpu/disk.raw.tar.gz -C fluorite-os/cloud-vtpm-with-gpu/ disk.raw --owner=ubuntu --group=ubuntu
+      #     # Compress the image for image creation on Google Cloud
+      #     tar -czf fluorite-os/cloud-vtpm-with-gpu/disk.raw.tar.gz -C fluorite-os/cloud-vtpm-with-gpu/ disk.raw --owner=ubuntu --group=ubuntu
 
-      - name: Build the GCP Shielded VM Notarizer enclave
-        run: |
-          earthly --strict -P +gcp-notarizer-os --outputDir=gcp-cvm-notarizer/
-          cp libraries/attestation/gcp-shielded-vm-attestation/gcp_notarizer_measurements.json gcp-cvm-notarizer/gcp_notarizer_measurements.json
+      # - name: Build the GCP Shielded VM Notarizer enclave
+      #   run: |
+      #     earthly --strict -P +gcp-notarizer-os --outputDir=gcp-cvm-notarizer/
+      #     cp libraries/attestation/gcp-shielded-vm-attestation/gcp_notarizer_measurements.json gcp-cvm-notarizer/gcp_notarizer_measurements.json
 
-          # Compress the image for image creation on Google Cloud
-          tar -czf gcp-cvm-notarizer/disk.raw.tar.gz -C gcp-cvm-notarizer/ disk.raw --owner=ubuntu --group=ubuntu
+      #     # Compress the image for image creation on Google Cloud
+      #     tar -czf gcp-cvm-notarizer/disk.raw.tar.gz -C gcp-cvm-notarizer/ disk.raw --owner=ubuntu --group=ubuntu
 
       # - name: Build SVSM Host and Guest Kernel
       #   run: earthly --strict +svsm-kernel
@@ -73,12 +73,12 @@ jobs:
           echo "tag=${VERSION}" >> $GITHUB_OUTPUT
           echo "semver=${VERSION_NO_V}" >> $GITHUB_OUTPUT
 
-      - name: Upload GCP Notarizer to Cloud Storage
-        id: upload-gcp-notarizer
-        uses: google-github-actions/upload-cloud-storage@v3
-        with:
-          path: "./gcp-cvm-notarizer"
-          destination: "fluorite/${{ steps.version.outputs.semver }}"
+      # - name: Upload GCP Notarizer to Cloud Storage
+      #   id: upload-gcp-notarizer
+      #   uses: google-github-actions/upload-cloud-storage@v3
+      #   with:
+      #     path: "./gcp-cvm-notarizer"
+      #     destination: "fluorite/${{ steps.version.outputs.semver }}"
 
       - name: Upload FluoriteOS images to Cloud Storage
         id: upload-os-versions
@@ -106,34 +106,34 @@ jobs:
             --guest-os-features="UEFI_COMPATIBLE,VIRTIO_SCSI_MULTIQUEUE" \
             --description "Fluorite OS ${VERSION} - vTPM enabled"
 
-          # Create GCP image for fluorite-os-gpu (vTPM with GPU)
-          echo "Creating fluorite-os-with-gpu-${VERSION_FORMATTED}..."
-          gcloud compute images create "fluorite-os-with-gpu-${VERSION_FORMATTED}" \
-            --project "$GCP_PROJECT_ID" \
-            --source-uri "${GCS_BUCKET}/${VERSION}/fluorite-os/cloud-vtpm-with-gpu/disk.raw.tar.gz" \
-            --family "fluorite-os-gpu" \
-            --guest-os-features="UEFI_COMPATIBLE,VIRTIO_SCSI_MULTIQUEUE" \
-            --description "Fluorite OS ${VERSION} - vTPM enabled with NVIDIA drivers"
+          # # Create GCP image for fluorite-os-gpu (vTPM with GPU)
+          # echo "Creating fluorite-os-with-gpu-${VERSION_FORMATTED}..."
+          # gcloud compute images create "fluorite-os-with-gpu-${VERSION_FORMATTED}" \
+          #   --project "$GCP_PROJECT_ID" \
+          #   --source-uri "${GCS_BUCKET}/${VERSION}/fluorite-os/cloud-vtpm-with-gpu/disk.raw.tar.gz" \
+          #   --family "fluorite-os-gpu" \
+          #   --guest-os-features="UEFI_COMPATIBLE,VIRTIO_SCSI_MULTIQUEUE" \
+          #   --description "Fluorite OS ${VERSION} - vTPM enabled with NVIDIA drivers"
 
-          # Create GCP image for gcp-notarizer-os (CVM with SEV-SNP)
-          echo "Creating gcp-notarizer-os-${VERSION_FORMATTED}..."
-          gcloud compute images create "gcp-notarizer-os-${VERSION_FORMATTED}" \
-            --project "$GCP_PROJECT_ID" \
-            --source-uri "${GCS_BUCKET}/${VERSION}/gcp-cvm-notarizer/disk.raw.tar.gz" \
-            --family "gcp-notarizer-os" \
-            --guest-os-features="UEFI_COMPATIBLE,SEV_CAPABLE,SEV_SNP_CAPABLE,SEV_LIVE_MIGRATABLE_V2,VIRTIO_SCSI_MULTIQUEUE" \
-            --description "GCP Notarizer OS ${VERSION} - Confidential VM with SEV-SNP"
+          # # Create GCP image for gcp-notarizer-os (CVM with SEV-SNP)
+          # echo "Creating gcp-notarizer-os-${VERSION_FORMATTED}..."
+          # gcloud compute images create "gcp-notarizer-os-${VERSION_FORMATTED}" \
+          #   --project "$GCP_PROJECT_ID" \
+          #   --source-uri "${GCS_BUCKET}/${VERSION}/gcp-cvm-notarizer/disk.raw.tar.gz" \
+          #   --family "gcp-notarizer-os" \
+          #   --guest-os-features="UEFI_COMPATIBLE,SEV_CAPABLE,SEV_SNP_CAPABLE,SEV_LIVE_MIGRATABLE_V2,VIRTIO_SCSI_MULTIQUEUE" \
+          #   --description "GCP Notarizer OS ${VERSION} - Confidential VM with SEV-SNP"
 
-          # Make images publicly accessible
-          echo ""
-          echo "Making images publicly accessible..."
-          for image in "fluorite-os-${VERSION_FORMATTED}" "fluorite-os-with-gpu-${VERSION_FORMATTED}" "gcp-notarizer-os-${VERSION_FORMATTED}"; do
-            echo "Setting public access for ${image}..."
-            gcloud compute images add-iam-policy-binding "$image" \
-              --project "$GCP_PROJECT_ID" \
-              --member "allAuthenticatedUsers" \
-              --role "roles/compute.imageUser"
-          done
+          # # Make images publicly accessible
+          # echo ""
+          # echo "Making images publicly accessible..."
+          # for image in "fluorite-os-${VERSION_FORMATTED}" "fluorite-os-with-gpu-${VERSION_FORMATTED}" "gcp-notarizer-os-${VERSION_FORMATTED}"; do
+          #   echo "Setting public access for ${image}..."
+          #   gcloud compute images add-iam-policy-binding "$image" \
+          #     --project "$GCP_PROJECT_ID" \
+          #     --member "allAuthenticatedUsers" \
+          #     --role "roles/compute.imageUser"
+          # done
 
       - name: Azure login
         uses: azure/login@v2
