@@ -3,6 +3,9 @@ name: Testing Pipeline
 on:
   workflow_dispatch:
 
+permissions:
+  id-token: write # Needed for Azure login
+
 env:
   VERSION: 0.0.0-testing-20260123162349
   ZONE_NAME: test.mithrilsecurity.io
