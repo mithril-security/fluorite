@@ -30,6 +30,11 @@ jobs:
           workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
           service_account: ${{ secrets.GCP_SA_EMAIL }}
 
+      - name: 'Set up Cloud SDK'
+        uses: 'google-github-actions/setup-gcloud@v3'
+        with:
+          version: '>= 363.0.0'
+
       - name: Build FluoriteOS image for cloud vTPM
         run: |
           earthly --strict -P +fluorite-os --outputDir=fluorite-os/cloud-vtpm/
@@ -161,30 +166,34 @@ jobs:
           enable-cache: true
 
       - name: Run script to resize and upload image to Azure
+        working-directory: operator/upload-os-image
         env:
           VERSION: ${{ steps.version.outputs.semver }}
         run: |
+
+          VERSION_FORMATTED="${VERSION//./-}"
+          
           uv sync --locked --all-extras
 
-          uv run operator/upload-os-image/main.py \
-            --os-disk-path fluorite-os/cloud-vtpm/disk.raw \
+          uv run main.py \
+            --os-disk-path ../../fluorite-os/cloud-vtpm/disk.raw \
             --resource-group-name fluorite-azure-registries \
             --location eastus2 \
             --target-regions francecentral \
-            --gallery-image-name FluoriteOS \
+            --gallery-image-name "FluoriteOS_${VERSION_FORMATTED}" \
             --sku Standard \
-            --os-measurement $(jq -r .fluoriteos_pcr4 fluorite-os/cloud-vtpm/os-measurement.json) \
-            --version "$VERSION"
+            --os-measurement $(jq -r .fluoriteos_pcr4 ../../fluorite-os/cloud-vtpm/os-measurement.json) \
+            --version "1.0.0"
 
-          uv run operator/upload-os-image/main.py \
-            --os-disk-path fluorite-os/cloud-vtpm-with-gpu/disk.raw \
+          uv run main.py \
+            --os-disk-path ../../fluorite-os/cloud-vtpm-with-gpu/disk.raw \
             --resource-group-name fluorite-azure-registries \
             --location eastus2 \
             --target-regions francecentral \
-            --gallery-image-name FluoriteOS_GPU \
+            --gallery-image-name "FluoriteOS_GPU_${VERSION_FORMATTED}" \
             --sku GPU \
-            --os-measurement $(jq -r .fluoriteos_pcr4 fluorite-os/cloud-vtpm-with-gpu/os-measurement.json) \
-            --version "$VERSION"
+            --os-measurement $(jq -r .fluoriteos_pcr4 ../../fluorite-os/cloud-vtpm-with-gpu/os-measurement.json) \
+            --version "1.0.0"
 
       - name: Generate SLSA subjects
         id: hash
