@@ -7,12 +7,12 @@ permissions:
   id-token: write # Needed for Azure login
 
 env:
-  VERSION: 0.0.0-testing-20260123162349
+  VERSION: 0.0.0-testing-20260123172155
   ZONE_NAME: test.mithrilsecurity.io
   AZURE_GALLERY_ID: "/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/fluorite-azure-registries/providers/Microsoft.Compute/galleries/FluoriteGallery/images"
 
 jobs:
-  test_nginx:
+  test_nginx_self_ca:
     runs-on: self-hosted
     timeout-minutes: 60
     env:
