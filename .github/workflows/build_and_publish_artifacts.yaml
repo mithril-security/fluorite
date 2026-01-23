@@ -35,14 +35,14 @@ jobs:
           earthly --strict -P +fluorite-os --outputDir=fluorite-os/cloud-vtpm/
           
           # Compress the image for image creation on Google Cloud
-          tar -Sczf fluorite-os/cloud-vtpm/disk.raw.tar.gz -C fluorite-os/cloud-vtpm/ disk.raw --owner=0 --group=0
+          tar -Sczf fluorite-os/cloud-vtpm/disk.raw.tar.gz -C fluorite-os/cloud-vtpm/ disk.raw
 
       # - name: Build FluoriteOS image for cloud vTPM with Nvidia drivers
       #   run: |
       #     earthly --strict -P +fluorite-os --nvidiaDriver=true --outputDir=fluorite-os/cloud-vtpm-with-gpu/
 
       #     # Compress the image for image creation on Google Cloud
-      #     tar -czf fluorite-os/cloud-vtpm-with-gpu/disk.raw.tar.gz -C fluorite-os/cloud-vtpm-with-gpu/ disk.raw --owner=ubuntu --group=ubuntu
+      #     tar -czf fluorite-os/cloud-vtpm-with-gpu/disk.raw.tar.gz -C fluorite-os/cloud-vtpm-with-gpu/ disk.raw
 
       # - name: Build the GCP Shielded VM Notarizer enclave
       #   run: |
@@ -50,7 +50,7 @@ jobs:
       #     cp libraries/attestation/gcp-shielded-vm-attestation/gcp_notarizer_measurements.json gcp-cvm-notarizer/gcp_notarizer_measurements.json
 
       #     # Compress the image for image creation on Google Cloud
-      #     tar -czf gcp-cvm-notarizer/disk.raw.tar.gz -C gcp-cvm-notarizer/ disk.raw --owner=ubuntu --group=ubuntu
+      #     tar -czf gcp-cvm-notarizer/disk.raw.tar.gz -C gcp-cvm-notarizer/ disk.raw
 
       # - name: Build SVSM Host and Guest Kernel
       #   run: earthly --strict +svsm-kernel
@@ -73,19 +73,19 @@ jobs:
           echo "tag=${VERSION}" >> $GITHUB_OUTPUT
           echo "semver=${VERSION_NO_V}" >> $GITHUB_OUTPUT
 
-      # - name: Upload GCP Notarizer to Cloud Storage
+      # - name: Upload GCP Notarizer to Cloud Storage with gsutil
       #   id: upload-gcp-notarizer
-      #   uses: google-github-actions/upload-cloud-storage@v3
-      #   with:
-      #     path: "./gcp-cvm-notarizer"
-      #     destination: "fluorite/${{ steps.version.outputs.semver }}"
+      #   env:
+      #     VERSION: ${{ steps.version.outputs.semver }}
+      #   run: |
+      #     gsutil -m cp -r ./gcp-cvm-notarizer gs://fluorite/${VERSION}/
 
-      - name: Upload FluoriteOS images to Cloud Storage
+      - name: Upload FluoriteOS images to Cloud Storage with gsutil
         id: upload-os-versions
-        uses: google-github-actions/upload-cloud-storage@v3
-        with:
-          path: "./fluorite-os"
-          destination: "fluorite/${{ steps.version.outputs.semver }}"
+        env:
+          VERSION: ${{ steps.version.outputs.semver }}
+        run: |
+          gsutil -m cp -r ./fluorite-os gs://fluorite/${VERSION}/
 
       - name: Publish OS images to GCP
         env:
