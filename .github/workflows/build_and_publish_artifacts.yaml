@@ -35,7 +35,7 @@ jobs:
           earthly --strict -P +fluorite-os --outputDir=fluorite-os/cloud-vtpm/
           
           # Compress the image for image creation on Google Cloud
-          tar -Sczf fluorite-os/cloud-vtpm/disk.raw.tar.gz -C fluorite-os/cloud-vtpm/ disk.raw
+          tar -Sczf fluorite-os/cloud-vtpm/disk.raw.tar.gz -C fluorite-os/cloud-vtpm/ disk.raw --owner=0 --group=0
 
       # - name: Build FluoriteOS image for cloud vTPM with Nvidia drivers
       #   run: |
