@@ -204,12 +204,12 @@ fluorite-os:
     RUN --privileged python3 scripts/compute_measurements.py ./rootfs/build/disk
     
     # Compress the image for image creation on Google Cloud
-    RUN tar -czf ./rootfs/build/disk.tar.gz -C ./rootfs/build/ disk.raw
+    RUN tar --owner=1000 --group=1000 -czf ./rootfs/build/disk.raw.tar.gz -C ./rootfs/build/ disk.raw
 
     ARG outputDir = "platform/cloud-vtpm/"
 
     SAVE ARTIFACT os-measurement.json AS LOCAL $outputDir/os-measurement.json
-    SAVE ARTIFACT ./rootfs/build/disk.tar.gz AS LOCAL $outputDir/disk.tar.gz
+    SAVE ARTIFACT ./rootfs/build/disk.raw.tar.gz AS LOCAL $outputDir/disk.raw.tar.gz
     SAVE ARTIFACT ./rootfs/build/disk AS LOCAL $outputDir/disk.raw
     SAVE ARTIFACT ./rootfs/build/disk.manifest AS LOCAL $outputDir/disk.manifest
 
@@ -697,13 +697,13 @@ gcp-notarizer-os:
         > gcp_notarizer_measurements.json
 
     # Compress the image for image creation on Google Cloud
-    RUN tar -czf ./rootfs/build/disk.tar.gz -C ./rootfs/build/ disk.raw
+    RUN tar -czf ./rootfs/build/disk.raw.tar.gz -C ./rootfs/build/ disk.raw
 
     SAVE ARTIFACT gcp_notarizer_measurements.json AS LOCAL libraries/attestation/gcp-shielded-vm-attestation/gcp_notarizer_measurements.json
 
     ARG outputDir = "./gcp-cvm-notarizer/"
 
     SAVE ARTIFACT os-measurement.json AS LOCAL $outputDir/os-measurement.json
-    SAVE ARTIFACT ./rootfs/build/disk.tar.gz AS LOCAL $outputDir/disk.tar.gz
+    SAVE ARTIFACT ./rootfs/build/disk.raw.tar.gz AS LOCAL $outputDir/disk.raw.tar.gz
     SAVE ARTIFACT ./rootfs/build/disk AS LOCAL $outputDir/disk.raw
     SAVE ARTIFACT ./rootfs/build/disk.manifest AS LOCAL $outputDir/disk.manifest

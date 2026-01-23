@@ -90,7 +90,7 @@ jobs:
           echo "Creating fluorite-os-${VERSION_FORMATTED}..."
           gcloud compute images create "fluorite-os-${VERSION_FORMATTED}" \
             --project "$GCP_PROJECT_ID" \
-            --source-uri "${GCS_BUCKET}/${VERSION}/fluorite-os/cloud-vtpm/disk.tar.gz" \
+            --source-uri "${GCS_BUCKET}/${VERSION}/fluorite-os/cloud-vtpm/disk.raw.tar.gz" \
             --family "fluorite-os" \
             --guest-os-features="UEFI_COMPATIBLE,VIRTIO_SCSI_MULTIQUEUE" \
             --description "Fluorite OS ${VERSION} - vTPM enabled"
@@ -99,7 +99,7 @@ jobs:
           echo "Creating fluorite-os-with-gpu-${VERSION_FORMATTED}..."
           gcloud compute images create "fluorite-os-with-gpu-${VERSION_FORMATTED}" \
             --project "$GCP_PROJECT_ID" \
-            --source-uri "${GCS_BUCKET}/${VERSION}/fluorite-os/cloud-vtpm-with-gpu/disk.tar.gz" \
+            --source-uri "${GCS_BUCKET}/${VERSION}/fluorite-os/cloud-vtpm-with-gpu/disk.raw.tar.gz" \
             --family "fluorite-os-gpu" \
             --guest-os-features="UEFI_COMPATIBLE,VIRTIO_SCSI_MULTIQUEUE" \
             --description "Fluorite OS ${VERSION} - vTPM enabled with NVIDIA drivers"
@@ -108,7 +108,7 @@ jobs:
           echo "Creating gcp-notarizer-os-${VERSION_FORMATTED}..."
           gcloud compute images create "gcp-notarizer-os-${VERSION_FORMATTED}" \
             --project "$GCP_PROJECT_ID" \
-            --source-uri "${GCS_BUCKET}/${VERSION}/gcp-cvm-notarizer/disk.tar.gz" \
+            --source-uri "${GCS_BUCKET}/${VERSION}/gcp-cvm-notarizer/disk.raw.tar.gz" \
             --family "gcp-notarizer-os" \
             --guest-os-features="UEFI_COMPATIBLE,SEV_CAPABLE,SEV_SNP_CAPABLE,SEV_LIVE_MIGRATABLE_V2,VIRTIO_SCSI_MULTIQUEUE" \
             --description "GCP Notarizer OS ${VERSION} - Confidential VM with SEV-SNP"
