@@ -81,7 +81,7 @@ jobs:
               set:
           EOF
 
-          yq -iy '.package.deploy.set.HOSTNAME = "${{ env.HOSTNAME }}"' ${{ env.DIR }}/localsecrets$}.yaml
+          yq -iy '.package.deploy.set.HOSTNAME = "${{ env.HOSTNAME }}"' ${{ env.DIR }}/deployment_config.yaml
 
       - name: Get the latest FluoriteOS image published on Azure Image Gallery and it's PCR4 Golden Value
         id: os_image_info
