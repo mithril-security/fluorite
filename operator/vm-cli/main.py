@@ -46,6 +46,7 @@ import argparse
 import os
 import json
 import base64
+from pathlib import Path
 
 
 logging.basicConfig(
@@ -220,6 +221,7 @@ def main(
     resource_group_name: str,
     location: str,
     shared_gallery_image_id: str,
+    output_path: Path
 ):
     credential = AzureCliCredential()
 
@@ -431,7 +433,7 @@ def main(
         )
         vms.agents.append(agent)
 
-    with open("cluster.json", "w") as outfile:
+    with open(output_path, "w") as outfile:
         outfile.write(vms.model_dump_json())
 
 
@@ -496,6 +498,14 @@ if __name__ == "__main__":
         required=True,
         help="Image Resource ID to provision the vms with.",
     )
+    
+    parser.add_argument(
+        "--output-path",
+        type=str,
+        required=False,
+        help="Path where the output will be saved (e.g. ./cluster.json)",
+        default=Path("./cluster.json")
+    )
 
     args = parser.parse_args()
 
@@ -516,4 +526,5 @@ if __name__ == "__main__":
         num_agents=args.num_agent_nodes,
         operator_pem_cert_path=args.operator_pem_cert_path,
         shared_gallery_image_id=args.image_resource_id,
+        output_path=args.output_path
     )
