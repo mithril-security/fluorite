@@ -16,9 +16,11 @@ jobs:
     runs-on: self-hosted
     timeout-minutes: 60
     env:
-      HOSTNAME: "${{ github.job }}.${{ env.ZONE_NAME }}"
       PACKAGE: zarf-nginx-self-ca
     steps:
+      - name: Set Hostname
+        run: echo "HOSTNAME=${{ github.job }}.${{ env.ZONE_NAME }}" >> $GITHUB_ENV
+        
       - name: Setup Earthly
         uses: earthly/actions-setup@v1
         with:
