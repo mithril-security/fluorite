@@ -202,9 +202,6 @@ fluorite-os:
     # Compute the golden PCR4 for the os image and save
     COPY scripts/compute_measurements.py scripts/compute_measurements.py 
     RUN --privileged python3 scripts/compute_measurements.py ./rootfs/build/disk
-    
-    # Compress the image for image creation on Google Cloud
-    RUN tar --owner=1000 --group=1000 -czf ./rootfs/build/disk.raw.tar.gz -C ./rootfs/build/ disk.raw
 
     ARG outputDir = "platform/cloud-vtpm/"
 
@@ -695,9 +692,6 @@ gcp-notarizer-os:
         --slurpfile os_data os-measurement.json \
         '{golden_pcr_data: $pcr_data[0], expected_os_image_measurement: $os_data[0].fluoriteos_pcr4}' \
         > gcp_notarizer_measurements.json
-
-    # Compress the image for image creation on Google Cloud
-    RUN tar -czf ./rootfs/build/disk.raw.tar.gz -C ./rootfs/build/ disk.raw
 
     SAVE ARTIFACT gcp_notarizer_measurements.json AS LOCAL libraries/attestation/gcp-shielded-vm-attestation/gcp_notarizer_measurements.json
 

@@ -31,15 +31,26 @@ jobs:
           service_account: ${{ secrets.GCP_SA_EMAIL }}
 
       - name: Build FluoriteOS image for cloud vTPM
-        run: earthly --strict -P +fluorite-os --outputDir=fluorite-os/cloud-vtpm/
+        run: |
+          earthly --strict -P +fluorite-os --outputDir=fluorite-os/cloud-vtpm/
+          
+          # Compress the image for image creation on Google Cloud
+          tar -czf fluorite-os/cloud-vtpm/disk.raw.tar.gz -C fluorite-os/cloud-vtpm/ disk.raw
 
       - name: Build FluoriteOS image for cloud vTPM with Nvidia drivers
-        run: earthly --strict -P +fluorite-os --nvidiaDriver=true --outputDir=fluorite-os/cloud-vtpm-with-gpu/
+        run: |
+          earthly --strict -P +fluorite-os --nvidiaDriver=true --outputDir=fluorite-os/cloud-vtpm-with-gpu/
+
+          # Compress the image for image creation on Google Cloud
+          tar -czf fluorite-os/cloud-vtpm-with-gpu/disk.raw.tar.gz -C fluorite-os/cloud-vtpm-with-gpu/ disk.raw
 
       - name: Build the GCP Shielded VM Notarizer enclave
         run: |
           earthly --strict -P +gcp-notarizer-os --outputDir=gcp-cvm-notarizer/
           cp libraries/attestation/gcp-shielded-vm-attestation/gcp_notarizer_measurements.json gcp-cvm-notarizer/gcp_notarizer_measurements.json
+
+          # Compress the image for image creation on Google Cloud
+          tar -czf gcp-cvm-notarizer/disk.raw.tar.gz -C gcp-cvm-notarizer/ disk.raw
 
       # - name: Build SVSM Host and Guest Kernel
       #   run: earthly --strict +svsm-kernel
