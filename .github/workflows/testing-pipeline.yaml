@@ -1,0 +1,155 @@
+name: Testing Pipeline
+
+on:
+  push:
+    branches: [ main ]
+
+env:
+  VERSION: 0.0.0-testing-20260123134649
+  ZONE_NAME: test.mithrilsecurity.io
+  AZURE_FLUORITE_OS: "/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/fluorite-azure-registries/providers/Microsoft.Compute/galleries/FluoriteGallery/images/FluoriteOS/"
+  AZURE_FLUORITE_OS_GPU: "/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/fluorite-azure-registries/providers/Microsoft.Compute/galleries/FluoriteGallery/images/FluoriteOS_GPU/"
+
+
+jobs:
+  test_nginx:
+    runs-on: self-hosted
+    timeout-minutes: 60
+    env:
+      HOSTNAME: "${{ github.job }}.${{ env.ZONE_NAME }}"
+      PACKAGE: zarf-nginx-self-ca
+    steps:
+      - name: Setup Earthly
+        uses: earthly/actions-setup@v1
+        with:
+          version: v0.8.16
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build provisioning bundle
+        run: earthly --strict -P  +${{ env.PACKAGE }}
+      
+      - name: Calculate Bundle Hash
+        id: bundle_hash
+        run: |
+          BUNDLE_PATH=
+          BUNDLE_HASH=$(sha256sum ./packages/zarf-package-${{ env.PACKAGE }}-amd64-1.0.0.tar.zst | awk '{print $1}')
+
+          echo "BUNDLE_HASH=$BUNDLE_HASH" >> $GITHUB_OUTPUT # Set an output variable
+
+      - name: Run setup build step
+        run: earthly --strict -P  +setup
+
+      - name: Generate Operator Certificates
+        run: ./operator/generate-certificates-cli/target/release/generate-certificates-cli --cert-directory-path ./${{ github.job }}/certificates
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Create secrets file
+        run: |
+          sudo apt-get update && sudo apt-get install -y yq
+
+
+          cat << EOF > ./${{ github.job }}/deployment_config.yaml
+          package:
+            deploy:
+              set:
+          EOF
+
+          yq -iy '.package.deploy.set.HOSTNAME = "${{ env.HOSTNAME }}"' ./{{ github.job }/localsecrets$}.yaml
+
+      - name: Get the latest FluoriteOS image published on Azure Image Gallery and it's PCR4 Golden Value
+        id: os_image_info
+        run: |
+          #TODO: Stop hardcoding the image version
+          LATEST_VERSION_ID="${{ env.AZURE_FLUORITE_OS }}/versions/0.0.1"
+          URL="https://storage.googleapis.com/fluorite/${{ env.VERSION }}/fluorite-os/cloud-vtpm/os-measurement.json"
+          OS_MEASUREMENT=$(curl $URL | jq -r .fluoriteos_pcr4)
+          OPERATOR_CERTIFICATE_B64=$(base64 -w0 ./{{ github.job }/certificates/cert.pem)
+
+          echo "LATEST_VERSION_ID=$LATEST_VERSION_ID" >> $GITHUB_OUTPUT
+          echo "OS_MEASUREMENT=$OS_MEASUREMENT" >> $GITHUB_OUTPUT
+          echo "OPERATOR_CERTIFICATE_B64=$OPERATOR_CERTIFICATE_B64" >> $GITHUB_OUTPUT
+
+      - name: Build CLI tools
+        run: earthly --strict -P  +operator-cli
+
+      - name: Spawn VMs for test
+        working-directory: operator/vm-cli/
+        run: |
+
+          uv sync --locked --all-extras --dev
+          uv run main.py \
+            --location francecentral \
+            --resource-group-name EndToEndTest-{{ github.job } \
+            --vm-type Standard_NC24ads_A100_v4 \
+            --num-control-plane-nodes 1 \
+            --num-agent-nodes 1 \
+            --operator-pem-cert-path ../../{{ github.job }/certificates/cert.pem \
+            --vm-security-type TrustedLaunch \
+            --image-resource-id "${{ steps.os_image_info.outputs.LATEST_VERSION_ID }}" \
+            --output_path ../../{{ github.job }/cluster.json
+
+      - name: Create A record for master VM
+        uses: azure/cli@v2
+        with:
+          azcliversion: latest
+          inlineScript: |
+            RESOURCE_GROUP="ivan-fli-multinode"            
+            A_RECORD_NAME="{{ github.job }"
+            MASTER_IP=$(az vm list-ip-addresses -g EndToEndTest-{{ github.job } -n master-vm --query "[].virtualMachine.network.publicIpAddresses[0].ipAddress" -o tsv)
+
+            # Add the A record for the master vm
+            az network dns record-set a add-record \
+              --resource-group $RESOURCE_GROUP \
+              --zone-name ${{ env.ZONE_NAME }} \
+              --record-set-name $A_RECORD_NAME \
+              --ipv4-address $MASTER_IP  \
+              --ttl 3600
+
+      - name: Provision VMs
+        run: |
+          ./operator/operator-cli/target/release/operator-cli \
+            --zarf-package-path ./packages/zarf-package-${{ env.PACKAGE }}-amd64-1.0.0.tar.zst \
+            --os-measurement "${{ steps.os_image_info.outputs.OS_MEASUREMENT }}" \
+            --platform-measurements-path ./measurements/measurements_azure.json \
+            --operator-cert-path ./{{ github.job }/certificates/cert.pem \
+            --operator-private-key-path ./{{ github.job }/certificates/key.pem \
+            --cluster-file-path ./{{ github.job }/cluster.json \
+            --deployment-config-path ./{{ github.job }/deployment_config.yaml \
+            --attestation-backend "AzureTrustedLaunchVM"
+
+      - name: Build Client app
+        run: earthly --strict -P  +client
+
+      - name: Run client app
+        run: |
+
+          echo "Wait for DNS to propagate" && sleep 120
+
+          ./multinode-provisioning/examples/client/target/release/client \
+            --master-url "https://${{ env.HOSTNAME }}" \
+            --operator-certificate-path ./{{ github.job }/certificates/cert.pem \
+            --bundle-hash "${{ steps.bundle_hash.outputs.BUNDLE_HASH }}" \
+            --os-measurement "${{ steps.os_image_info.outputs.OS_MEASUREMENT }}" \
+            --platform-measurements-path ./measurements/measurements_azure.json \
+            --attestation-backend "AzureTrustedLaunchVM"
+
+      - name: Delete resource group
+        uses: azure/cli@v2
+        with:
+          azcliversion: latest
+          inlineScript: |
+            az group delete -n EndToEndTest --force-deletion-types Microsoft.Compute/virtualMachines --yes
+  
