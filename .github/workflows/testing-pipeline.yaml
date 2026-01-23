@@ -1,14 +1,12 @@
 name: Testing Pipeline
 
 on:
-  push:
-    branches: [ main ]
+  workflow_dispatch:
 
 env:
-  VERSION: 0.0.0-testing-20260123134649
+  VERSION: 0.0.0-testing-20260123162349
   ZONE_NAME: test.mithrilsecurity.io
-  AZURE_FLUORITE_OS: "/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/fluorite-azure-registries/providers/Microsoft.Compute/galleries/FluoriteGallery/images/FluoriteOS/"
-  AZURE_FLUORITE_OS_GPU: "/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/fluorite-azure-registries/providers/Microsoft.Compute/galleries/FluoriteGallery/images/FluoriteOS_GPU/"
+  AZURE_GALLERY_ID: "/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/fluorite-azure-registries/providers/Microsoft.Compute/galleries/FluoriteGallery/images"
 
 
 jobs:
@@ -16,11 +14,15 @@ jobs:
     runs-on: self-hosted
     timeout-minutes: 60
     env:
-      PACKAGE: zarf-nginx-self-ca
+      PACKAGE: nginx-self-ca
     steps:
       - name: Set Hostname
-        run: echo "HOSTNAME=${{ github.job }}.${{ env.ZONE_NAME }}" >> $GITHUB_ENV
-        
+        run: |
+          echo "HOSTNAME=${{ github.job }}.${{ env.ZONE_NAME }}" >> $GITHUB_ENV
+          VERSION_FORMATTED="${VERSION//./-}"
+          echo "AZURE_IMAGE=${{ env.AZURE_GALLERY_ID }}/fluorite-os-${VERSION_FORMATTED}/versions/1.0.0" >> $GITHUB_ENV
+          echo "AZURE_IMAGE_GPU=${{ env.AZURE_GALLERY_ID }}/fluorite-os-with-gpu-${VERSION_FORMATTED}/versions/1.0.0" >> $GITHUB_ENV
+
       - name: Setup Earthly
         uses: earthly/actions-setup@v1
         with:
@@ -30,12 +32,11 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build provisioning bundle
-        run: earthly --strict -P  +${{ env.PACKAGE }}
+        run: earthly --strict -P  +zarf-${{ env.PACKAGE }}
       
       - name: Calculate Bundle Hash
         id: bundle_hash
         run: |
-          BUNDLE_PATH=
           BUNDLE_HASH=$(sha256sum ./packages/zarf-package-${{ env.PACKAGE }}-amd64-1.0.0.tar.zst | awk '{print $1}')
 
           echo "BUNDLE_HASH=$BUNDLE_HASH" >> $GITHUB_OUTPUT # Set an output variable
@@ -74,13 +75,10 @@ jobs:
       - name: Get the latest FluoriteOS image published on Azure Image Gallery and it's PCR4 Golden Value
         id: os_image_info
         run: |
-          #TODO: Stop hardcoding the image version
-          LATEST_VERSION_ID="${{ env.AZURE_FLUORITE_OS }}/versions/0.0.1"
           URL="https://storage.googleapis.com/fluorite/${{ env.VERSION }}/fluorite-os/cloud-vtpm/os-measurement.json"
           OS_MEASUREMENT=$(curl $URL | jq -r .fluoriteos_pcr4)
           OPERATOR_CERTIFICATE_B64=$(base64 -w0 ./{{ github.job }/certificates/cert.pem)
 
-          echo "LATEST_VERSION_ID=$LATEST_VERSION_ID" >> $GITHUB_OUTPUT
           echo "OS_MEASUREMENT=$OS_MEASUREMENT" >> $GITHUB_OUTPUT
           echo "OPERATOR_CERTIFICATE_B64=$OPERATOR_CERTIFICATE_B64" >> $GITHUB_OUTPUT
 
@@ -100,7 +98,7 @@ jobs:
             --num-agent-nodes 1 \
             --operator-pem-cert-path ../../{{ github.job }/certificates/cert.pem \
             --vm-security-type TrustedLaunch \
-            --image-resource-id "${{ steps.os_image_info.outputs.LATEST_VERSION_ID }}" \
+            --image-resource-id "${{ env.AZURE_IMAGE }}" \
             --output_path ../../{{ github.job }/cluster.json
 
       - name: Create A record for master VM
