@@ -8,7 +8,6 @@ env:
   ZONE_NAME: test.mithrilsecurity.io
   AZURE_GALLERY_ID: "/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/fluorite-azure-registries/providers/Microsoft.Compute/galleries/FluoriteGallery/images"
 
-
 jobs:
   test_nginx:
     runs-on: self-hosted
@@ -33,7 +32,7 @@ jobs:
 
       - name: Build provisioning bundle
         run: earthly --strict -P  +zarf-${{ env.PACKAGE }}
-      
+
       - name: Calculate Bundle Hash
         id: bundle_hash
         run: |
@@ -42,7 +41,11 @@ jobs:
           echo "BUNDLE_HASH=$BUNDLE_HASH" >> $GITHUB_OUTPUT # Set an output variable
 
       - name: Run setup build step
-        run: earthly --strict -P  +setup
+        run: |
+          # Get the this version's gcp_notarizer_measurements.json 
+          curl "https://storage.googleapis.com/fluorite/${{ env.VERSION }}/gcp-cvm-notarizer/gcp_notarizer_measurements.json" > libraries/attestation/gcp-shielded-vm-attestation/gcp_notarizer_measurements.json
+                    
+          earthly --strict -P  +setup
 
       - name: Generate Operator Certificates
         run: ./operator/generate-certificates-cli/target/release/generate-certificates-cli --cert-directory-path ./${{ github.job }}/certificates
@@ -152,4 +155,3 @@ jobs:
           azcliversion: latest
           inlineScript: |
             az group delete -n EndToEndTest --force-deletion-types Microsoft.Compute/virtualMachines --yes
-  
