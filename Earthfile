@@ -191,7 +191,8 @@ fluorite-os:
     ARG snpBareMetal = false
 
     IF [ "$snpBareMetal" = "true" ]
-        COPY +build-guest-kernel-svsm/svsm-linux ./svsm-linux
+        COPY svsm-linux-guest/ ./svsm-linux
+        # COPY +build-guest-kernel-svsm/svsm-linux ./svsm-linux
     END
 
     COPY +setup-rootfs/rootfs ./rootfs
@@ -206,7 +207,6 @@ fluorite-os:
     ARG outputDir = "platform/cloud-vtpm/"
 
     SAVE ARTIFACT os-measurement.json AS LOCAL $outputDir/os-measurement.json
-    SAVE ARTIFACT ./rootfs/build/disk.raw.tar.gz AS LOCAL $outputDir/disk.raw.tar.gz
     SAVE ARTIFACT ./rootfs/build/disk AS LOCAL $outputDir/disk.raw
     SAVE ARTIFACT ./rootfs/build/disk.manifest AS LOCAL $outputDir/disk.manifest
 
@@ -698,6 +698,5 @@ gcp-notarizer-os:
     ARG outputDir = "./gcp-cvm-notarizer/"
 
     SAVE ARTIFACT os-measurement.json AS LOCAL $outputDir/os-measurement.json
-    SAVE ARTIFACT ./rootfs/build/disk.raw.tar.gz AS LOCAL $outputDir/disk.raw.tar.gz
     SAVE ARTIFACT ./rootfs/build/disk AS LOCAL $outputDir/disk.raw
     SAVE ARTIFACT ./rootfs/build/disk.manifest AS LOCAL $outputDir/disk.manifest
