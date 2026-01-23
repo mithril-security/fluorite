@@ -103,14 +103,14 @@ jobs:
           uv sync --locked --all-extras --dev
           uv run main.py \
             --location francecentral \
-            --resource-group-name EndToEndTest-${{ github.job }} \
+            --resource-group-name "EndToEndTest-${{ github.job }}" \
             --vm-type Standard_NC24ads_A100_v4 \
             --num-control-plane-nodes 1 \
             --num-agent-nodes 1 \
-            --operator-pem-cert-path ../.${{ env.DIR }}/certificates/cert.pem \
+            --operator-pem-cert-path ${{ env.DIR }}/certificates/cert.pem \
             --vm-security-type TrustedLaunch \
             --image-resource-id "${{ env.AZURE_IMAGE }}" \
-            --output_path ../.${{ env.DIR }}/cluster.json
+            --output_path ${{ env.DIR }}/cluster.json
 
       - name: Create A record for master VM
         uses: azure/cli@v2
@@ -162,4 +162,4 @@ jobs:
         with:
           azcliversion: latest
           inlineScript: |
-            az group delete -n EndToEndTest --force-deletion-types Microsoft.Compute/virtualMachines --yes
+            az group delete -n "EndToEndTest-${{ github.job }}" --force-deletion-types Microsoft.Compute/virtualMachines --yes
