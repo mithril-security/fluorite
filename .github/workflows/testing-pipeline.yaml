@@ -13,7 +13,7 @@ env:
 
 jobs:
   test_nginx_self_ca:
-    runs-on: self-hosted
+    runs-on: fluorite-runner
     timeout-minutes: 60
     env:
       PACKAGE: nginx-self-ca
@@ -177,7 +177,7 @@ jobs:
           inlineScript: |
             az group delete -n "EndToEndTest-${{ github.job }}" --force-deletion-types Microsoft.Compute/virtualMachines --yes
   test_nginx:
-    runs-on: self-hosted
+    runs-on: fluorite-runner
     timeout-minutes: 60
     env:
       PACKAGE: nginx
