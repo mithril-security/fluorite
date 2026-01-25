@@ -12,7 +12,7 @@ env:
   AZURE_GALLERY_ID: "/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/fluorite-azure-registries/providers/Microsoft.Compute/galleries/FluoriteGallery/images"
 
 jobs:
-  test_nginx_self_ca:
+  test-nginx-self-ca:
     runs-on: fluorite-runner
     timeout-minutes: 60
     env:
@@ -70,8 +70,8 @@ jobs:
           OS_MEASUREMENT=$(curl $MEASUREMENT_URL | jq -r .fluoriteos_pcr4)
           echo "OS_MEASUREMENT=$OS_MEASUREMENT" >> $GITHUB_ENV
 
-          PLATFORM_MEASUREMENT_PATH="./measurements/measurements_azure.json"
-          echo "PLATFORM_MEASUREMENT_PATH=$PLATFORM_MEASUREMENT_PATH" >> $GITHUB_ENV
+          PLATFORM_MEASUREMENTS_PATH="./measurements/measurements_azure.json"
+          echo "PLATFORM_MEASUREMENTS_PATH=$PLATFORM_MEASUREMENTS_PATH" >> $GITHUB_ENV
 
           PACKAGE_PATH="./packages/zarf-package-${{ env.PACKAGE }}-amd64-1.0.0.tar.zst"
           echo "PACKAGE_PATH=$PACKAGE_PATH" >> $GITHUB_ENV
@@ -147,7 +147,7 @@ jobs:
           ./operator/operator-cli/target/release/operator-cli \
             --zarf-package-path ${{ env.PACKAGE_PATH }} \
             --os-measurement ${{ env.OS_MEASUREMENT }} \
-            --platform-measurements-path ${{ env.PLATFORM_MEASUREMENT_PATH }} \
+            --platform-measurements-path ${{ env.PLATFORM_MEASUREMENTS_PATH }} \
             --operator-cert-path ${{ env.OPERATOR_CERTIFICATE_PATH }} \
             --operator-private-key-path ${{ env.OPERATOR_PRIVATE_KEY_PATH }} \
             --cluster-file-path ${{ env.DIR }}/cluster.json \
@@ -167,7 +167,7 @@ jobs:
             --operator-certificate-path ${{ env.OPERATOR_CERTIFICATE_PATH }} \
             --bundle-hash ${{ env.BUNDLE_HASH }} \
             --os-measurement ${{ env.OS_MEASUREMENT }} \
-            --platform-measurements-path ${{ env.PLATFORM_MEASUREMENT_PATH }}  \
+            --platform-measurements-path ${{ env.PLATFORM_MEASUREMENTS_PATH }}  \
             --attestation-backend ${{ env.ATTESTATION_BACKEND }}
 
       - name: Delete resource group
@@ -177,7 +177,7 @@ jobs:
           azcliversion: latest
           inlineScript: |
             az group delete -n "EndToEndTest-${{ github.job }}" --force-deletion-types Microsoft.Compute/virtualMachines --yes
-  test_nginx:
+  test-nginx:
     runs-on: fluorite-runner
     timeout-minutes: 60
     env:
@@ -235,8 +235,8 @@ jobs:
           OS_MEASUREMENT=$(curl $MEASUREMENT_URL | jq -r .fluoriteos_pcr4)
           echo "OS_MEASUREMENT=$OS_MEASUREMENT" >> $GITHUB_ENV
 
-          PLATFORM_MEASUREMENT_PATH="./measurements/measurements_azure.json"
-          echo "PLATFORM_MEASUREMENT_PATH=$PLATFORM_MEASUREMENT_PATH" >> $GITHUB_ENV
+          PLATFORM_MEASUREMENTS_PATH="./measurements/measurements_azure.json"
+          echo "PLATFORM_MEASUREMENTS_PATH=$PLATFORM_MEASUREMENTS_PATH" >> $GITHUB_ENV
 
           PACKAGE_PATH="./packages/zarf-package-${{ env.PACKAGE }}-amd64-1.0.0.tar.zst"
           echo "PACKAGE_PATH=$PACKAGE_PATH" >> $GITHUB_ENV
@@ -262,26 +262,20 @@ jobs:
 
           DEPLOYMENT_CONFIG_PATH="${{ env.DIR }}/deployment_config.yaml"
           echo "DEPLOYMENT_CONFIG_PATH=$DEPLOYMENT_CONFIG_PATH" >> $GITHUB_ENV
-          
-          # Underscores are not allowed in Container App names and Environment names
-          JOB="${{ github.job }}"
-          JOB_FORMATTED="${JOB//_/-}"
-          
-          echo "JOB_FORMATTED=$JOB_FORMATTED" >> $GITHUB_ENV
 
-          ATS_ENDPOINT="https://ats.$JOB_FORMATTED.${{ env.HOSTNAME }}/verify_csr"
+          ATS_ENDPOINT="https://ats.${{ github.job }}.${{ env.HOSTNAME }}/verify_csr"
           echo "ATS_ENDPOINT=$ATS_ENDPOINT" >> $GITHUB_ENV
 
-          ATS_CONTAINER_APP_NAME="ats-app-$JOB_FORMATTED"
+          ATS_CONTAINER_APP_NAME="ats-app-${{ github.job }}"
           echo "ATS_CONTAINER_APP_NAME=$ATS_CONTAINER_APP_NAME" >> $GITHUB_ENV
 
-          ATS_CONTAINER_APP_ENVIRONMENT="ats-env-$JOB_FORMATTED"
+          ATS_CONTAINER_APP_ENVIRONMENT="ats-env-${{ github.job }}"
           echo "ATS_CONTAINER_APP_ENVIRONMENT=$ATS_CONTAINER_APP_ENVIRONMENT" >> $GITHUB_ENV
 
-          DOMAIN_MONITOR_CONTAINER_APP_NAME="dom-mon-app-$JOB_FORMATTED"
+          DOMAIN_MONITOR_CONTAINER_APP_NAME="dom-mon-app-${{ github.job }}"
           echo "DOMAIN_MONITOR_CONTAINER_APP_NAME=$DOMAIN_MONITOR_CONTAINER_APP_NAME" >> $GITHUB_ENV
 
-          DOMAIN_MONITOR_CONTAINER_APP_ENVIRONMENT="dom-mon-env-$JOB_FORMATTED"
+          DOMAIN_MONITOR_CONTAINER_APP_ENVIRONMENT="dom-mon-env-${{ github.job }}"
           echo "DOMAIN_MONITOR_CONTAINER_APP_ENVIRONMENT=$DOMAIN_MONITOR_CONTAINER_APP_ENVIRONMENT" >> $GITHUB_ENV
 
           RESOURCE_GROUP="ivan-fli-multinode"
@@ -332,7 +326,7 @@ jobs:
             STORAGE_URL="https://proof.ivan.mithrilsecurity.io/"
             AZURE_SUBSCRIPTION_ID="${{ secrets.AZURE_SUBSCRIPTION_ID }}"
             IDENTITY_RESOURCE_ID="/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ env.RESOURCE_GROUP }}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/attestation-transparency-service-identity"
-            PLATFORM_MEASUREMENTS_PATH="${{ env.PLATFORM_MEASUREMENT_PATH }}"
+            PLATFORM_MEASUREMENTS_PATH="${{ env.PLATFORM_MEASUREMENTS_PATH }}"
 
       - name: Setup attestation-transparency-service
         uses: azure/cli@v2
@@ -377,9 +371,9 @@ jobs:
             ATTESTATION_BACKEND="${{ env.ATTESTATION_BACKEND }}"
             OPERATOR_CERTIFICATE_B64="${{ env.OPERATOR_CERTIFICATE_B64 }}"
             BUNDLE_HASH="${{ env.BUNDLE_HASH }}"
-            OS_MEASUREMENT }}" 
+            OS_MEASUREMENT="${{ env.OS_MEASUREMENT }}" 
             STORAGE_URL="https://proof.ivan.mithrilsecurity.io/"
-            PLATFORM_MEASUREMENTS_PATH="${{ env.PLATFORM_MEASUREMENT_PATH }}"
+            PLATFORM_MEASUREMENTS_PATH="${{ env.PLATFORM_MEASUREMENTS_PATH }}"
       
       - name: Setup domain-monitor
         uses: azure/cli@v2
@@ -436,7 +430,7 @@ jobs:
           ./operator/operator-cli/target/release/operator-cli \
             --zarf-package-path ${{ env.PACKAGE_PATH }} \
             --os-measurement ${{ env.OS_MEASUREMENT }} \
-            --platform-measurements-path ${{ env.PLATFORM_MEASUREMENT_PATH }} \
+            --platform-measurements-path ${{ env.PLATFORM_MEASUREMENTS_PATH }} \
             --operator-cert-path ${{ env.OPERATOR_CERTIFICATE_PATH }} \
             --operator-private-key-path ${{ env.OPERATOR_PRIVATE_KEY_PATH }} \
             --cluster-file-path ${{ env.DIR }}/cluster.json \
@@ -456,7 +450,7 @@ jobs:
             --operator-certificate-path ${{ env.OPERATOR_CERTIFICATE_PATH }} \
             --bundle-hash ${{ env.BUNDLE_HASH }} \
             --os-measurement ${{ env.OS_MEASUREMENT }} \
-            --platform-measurements-path ${{ env.PLATFORM_MEASUREMENT_PATH }}  \
+            --platform-measurements-path ${{ env.PLATFORM_MEASUREMENTS_PATH }}  \
             --attestation-backend ${{ env.ATTESTATION_BACKEND }}
 
       - name: Delete resource group
