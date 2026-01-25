@@ -77,7 +77,7 @@ jobs:
           echo "PACKAGE_PATH=$PACKAGE_PATH" >> $GITHUB_ENV
 
           # Compute the hash of the provisioning package
-          BUNDLE_HASH=$( sha256sum ${{ env.PACKAGE_PATH }} | awk '{print $1}')
+          BUNDLE_HASH=$(sha256sum $PACKAGE_PATH | awk '{print $1}')
           echo "BUNDLE_HASH=$BUNDLE_HASH" >> $GITHUB_ENV
 
           # Generate the password for the Attestation Transparency Service
@@ -92,7 +92,7 @@ jobs:
           echo "OPERATOR_PRIVATE_KEY_PATH=$OPERATOR_PRIVATE_KEY_PATH" >> $GITHUB_ENV
 
           # Encode the operator certificate for the next jobs
-          OPERATOR_CERTIFICATE_B64=$(base64 -w0 ${{ env.OPERATOR_CERTIFICATE_PATH }})
+          OPERATOR_CERTIFICATE_B64=$(base64 -w0 $OPERATOR_CERTIFICATE_PATH)
           echo "OPERATOR_CERTIFICATE_B64=$OPERATOR_CERTIFICATE_B64" >> $GITHUB_ENV
           
           DEPLOYMENT_CONFIG_PATH="${{ env.DIR }}/deployment_config.yaml"
