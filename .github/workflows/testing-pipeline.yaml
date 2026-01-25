@@ -262,13 +262,16 @@ jobs:
 
           DEPLOYMENT_CONFIG_PATH="${{ env.DIR }}/deployment_config.yaml"
           echo "DEPLOYMENT_CONFIG_PATH=$DEPLOYMENT_CONFIG_PATH" >> $GITHUB_ENV
+          
+          # Underscores are not allowed in Container App names and Environment names
+          JOB="${{ github.job }}"
+          JOB_FORMATTED="${JOB//_/-}"
+          
+          echo "JOB_FORMATTED=$JOB_FORMATTED" >> $GITHUB_ENV
 
-          ATS_ENDPOINT="https://ats.${{ github.job }}.${{ env.HOSTNAME }}/verify_csr"
+          ATS_ENDPOINT="https://ats.$JOB_FORMATTED.${{ env.HOSTNAME }}/verify_csr"
           echo "ATS_ENDPOINT=$ATS_ENDPOINT" >> $GITHUB_ENV
 
-          JOB="${{ github.job }}"
-          # Underscores are not allowed in Container App names and Environment names
-          JOB_FORMATTED="${JOB//_/-}"
           ATS_CONTAINER_APP_NAME="ats-app-$JOB_FORMATTED"
           echo "ATS_CONTAINER_APP_NAME=$ATS_CONTAINER_APP_NAME" >> $GITHUB_ENV
 
@@ -342,7 +345,7 @@ jobs:
             CONTAINER_APP="${{ env.ATS_CONTAINER_APP_NAME }}"
             CONTAINER_APP_ENV="${{ env.ATS_CONTAINER_APP_ENVIRONMENT }}"
 
-            A_RECORD_NAME="ats.${{ github.job }}"
+            A_RECORD_NAME="ats.${{ env.JOB_FORMATTED }}"
 
             # Assign attestation-transparency-service-identity to Container App
             # This is needed because the container needs permission to write to Azure Blob Storage
@@ -388,7 +391,7 @@ jobs:
             RESOURCE_GROUP="${{ env.RESOURCE_GROUP }}"
             CONTAINER_APP="${{ env.DOMAIN_MONITOR_CONTAINER_APP_NAME }}"
             CONTAINER_APP_ENV="${{ env.DOMAIN_MONITOR_CONTAINER_APP_ENVIRONMENT }}"
-            A_RECORD_NAME="domainmonitor.${{ github.job }}"
+            A_RECORD_NAME="domainmonitor.${{ env.JOB_FORMATTED }}"
 
             ./scripts/setup-containerapp.sh $RESOURCE_GROUP $CONTAINER_APP $CONTAINER_APP_ENV $ZONE_NAME $A_RECORD_NAME
 
@@ -399,7 +402,7 @@ jobs:
           uv sync --locked --all-extras --dev
           uv run main.py \
             --location eastus2 \
-            --resource-group-name "EndToEndTest-${{ github.job }}" \
+            --resource-group-name "EndToEndTest-${{ env.JOB_FORMATTED }}" \
             --vm-type Standard_D4as_v4 \
             --num-control-plane-nodes 1 \
             --num-agent-nodes 1 \

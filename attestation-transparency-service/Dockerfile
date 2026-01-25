@@ -22,7 +22,7 @@ WORKDIR /app
 COPY ./attestation-transparency-service/target/release/attestation-transparency-service ./attestation-transparency-service
 
 ARG PLATFORM_MEASUREMENTS_PATH="../measurements"
-COPY ${PLATFORM_MEASUREMENTS_PATH} /measurements
+COPY ${PLATFORM_MEASUREMENTS_PATH} ./measurements
 
 EXPOSE 8000
 

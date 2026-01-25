@@ -20,7 +20,7 @@ COPY ./domain-monitor/target/release/domain-monitor ./domain-monitor
 COPY ./domain-monitor/static/ ./static/
 
 ARG PLATFORM_MEASUREMENTS_PATH="../measurements"
-COPY ${PLATFORM_MEASUREMENTS_PATH} /measurements
+COPY ${PLATFORM_MEASUREMENTS_PATH} ./measurements
 
 
 EXPOSE 8000
