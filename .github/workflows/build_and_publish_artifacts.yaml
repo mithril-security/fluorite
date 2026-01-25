@@ -182,7 +182,6 @@ jobs:
             --target-regions francecentral \
             --gallery-image-name "fluorite-os-${VERSION_FORMATTED}" \
             --sku "fluorite-os-${VERSION_FORMATTED}" \
-            --os-measurement $(jq -r .fluoriteos_pcr4 ../../fluorite-os/cloud-vtpm/os-measurement.json) \
             --version "1.0.0"
 
           uv run main.py \
@@ -192,7 +191,6 @@ jobs:
             --target-regions francecentral \
             --gallery-image-name "fluorite-os-with-gpu-${VERSION_FORMATTED}" \
             --sku "fluorite-os-with-gpu-${VERSION_FORMATTED}" \
-            --os-measurement $(jq -r .fluoriteos_pcr4 ../../fluorite-os/cloud-vtpm-with-gpu/os-measurement.json) \
             --version "1.0.0"
 
       - name: Generate SLSA subjects

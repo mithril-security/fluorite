@@ -53,6 +53,8 @@ import subprocess
 import json
 import base64
 from cryptography import x509
+import random
+import string
 from cryptography.hazmat.primitives.serialization import Encoding
 
 logging.basicConfig(
@@ -64,6 +66,9 @@ logging.basicConfig(
 
 logging.getLogger("azure").setLevel(logging.WARNING)
 
+def generate_random_string(length: int):
+    """Generate a random string of lowercase alphabetic characters."""
+    return "".join(random.choices(string.ascii_lowercase, k=length))
 
 def qemu_disk_size(path: str):
     out = subprocess.run(
@@ -90,7 +95,6 @@ def main(
     sku: str,
     target_regions: list[str],
     gallery_image_name: str,
-    os_measurement: str,
     image_version: str,
 ):
     credential = AzureCliCredential()
@@ -225,7 +229,7 @@ def main(
 
     logging.info(f"Success. Got Storage Account keys")
 
-    disk_name = f"osdisk-{os_measurement}.vhd"
+    disk_name = f"osdisk-{generate_random_string(5)}.vhd"
     logging.info(f"Generating blob SAS token for disk: {disk_name}")
 
     # az storage azcopy blob upload \
@@ -484,10 +488,6 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--os-measurement", help="The OS PCR4 measurement", type=str, required=True
-    )
-
-    parser.add_argument(
         "--version",
         help="The image version in semver format (e.g., 1.0.0)",
         type=str,
@@ -527,6 +527,5 @@ if __name__ == "__main__":
         sku=args.sku,
         target_regions=args.target_regions,
         gallery_image_name=args.gallery_image_name,
-        os_measurement=args.os_measurement,
         image_version=args.version,
     )

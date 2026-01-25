@@ -36,8 +36,7 @@ uv run main.py \
     --os-disk-path ../../fluorite-os/cloud-vtpm/disk.raw \
     --resource-group-name fluorite-azure-registries \
     --location eastus2 \
-    --target-regions francecentral \
-    --os-measurement $(jq -r .fluoriteos_pcr4 ../../fluorite-os/cloud-vtpm/os-measurement.json)
+    --target-regions francecentral
 ```
 
 ### Note on target regions

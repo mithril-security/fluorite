@@ -60,7 +60,6 @@ Packages=
         util-linux
 
         # https://github.com/systemd/mkosi/blob/v25.3/mkosi/resources/mkosi-vm/mkosi.conf.d/debian-kali-ubuntu/mkosi.conf
-        # bash
         dbus-broker
         iproute2
         
@@ -82,20 +81,22 @@ Packages=
         # https://github.com/systemd/mkosi/blob/v25.3/mkosi/resources/mkosi-vm/mkosi.conf.d/debian-kali-ubuntu/mkosi.conf.d/systemd-boot-signed.conf
         # systemd-boot-efi-signed
          
-        # https://github.com/systemd/mkosi/blob/19a6baa47b3366c9d6c209ce58ee305c1f1fc508/mkosi/resources/mkosi-vm/mkosi.conf.d/debian-kali-ubuntu/mkosi.conf.d/systemd-boot.conf
+        # Boot
         systemd-boot
         systemd-boot-efi
 
-        # https://github.com/systemd/mkosi/blob/v25.3/mkosi/resources/mkosi-vm/mkosi.conf.d/debian-kali-ubuntu/mkosi.conf.d/systemd-resolved.conf
+        # DNS resolution
         systemd-resolved
 
         apparmor
         apparmor-utils
         iptables-persistent
 
+        # CA certificates for TLS
+        ca-certificates
+
         {% if debug %}
          login
-         ca-certificates
          vim
          nano
          apt
