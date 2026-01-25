@@ -4,7 +4,8 @@ on:
   workflow_dispatch:
 
 permissions:
-  id-token: write # Needed for Azure login
+  id-token: write
+  contents: read
 
 env:
   VERSION: 0.0.0-testing-20260125125844
@@ -339,7 +340,7 @@ jobs:
             CONTAINER_APP="${{ env.ATS_CONTAINER_APP_NAME }}"
             CONTAINER_APP_ENV="${{ env.ATS_CONTAINER_APP_ENVIRONMENT }}"
 
-            A_RECORD_NAME="ats.${{ env.JOB_FORMATTED }}"
+            A_RECORD_NAME="ats.${{ github.job }}"
 
             # Assign attestation-transparency-service-identity to Container App
             # This is needed because the container needs permission to write to Azure Blob Storage
@@ -385,7 +386,7 @@ jobs:
             RESOURCE_GROUP="${{ env.RESOURCE_GROUP }}"
             CONTAINER_APP="${{ env.DOMAIN_MONITOR_CONTAINER_APP_NAME }}"
             CONTAINER_APP_ENV="${{ env.DOMAIN_MONITOR_CONTAINER_APP_ENVIRONMENT }}"
-            A_RECORD_NAME="domainmonitor.${{ env.JOB_FORMATTED }}"
+            A_RECORD_NAME="domainmonitor.${{ github.job }}"
 
             ./scripts/setup-containerapp.sh $RESOURCE_GROUP $CONTAINER_APP $CONTAINER_APP_ENV $ZONE_NAME $A_RECORD_NAME
 
@@ -396,7 +397,7 @@ jobs:
           uv sync --locked --all-extras --dev
           uv run main.py \
             --location eastus2 \
-            --resource-group-name "EndToEndTest-${{ env.JOB_FORMATTED }}" \
+            --resource-group-name "EndToEndTest-${{ github.job }}" \
             --vm-type Standard_D4as_v4 \
             --num-control-plane-nodes 1 \
             --num-agent-nodes 1 \
