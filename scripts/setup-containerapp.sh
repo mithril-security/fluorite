@@ -7,21 +7,30 @@ A_RECORD_NAME=$5
 TXT_RECORD_NAME="asuid.$A_RECORD_NAME"            
 DOMAIN_NAME="$A_RECORD_NAME.$ZONE_NAME"
 
-# 5. If you're configuring an apex domain, get the IP address of your Container Apps environment.
+# 1. Set minium/maxium number of replicas to 1 so it's always running
+az containerapp update \
+    -n $CONTAINER_APP \
+    -g $RESOURCE_GROUP \
+    --cpu 0.5 \
+    --memory 1.0Gi \
+    --min-replicas 1 \
+    --max-replicas 1
+
+# 2. If you're configuring an apex domain, get the IP address of your Container Apps environment.
 IP=$(az containerapp env show \
     -n $CONTAINER_APP_ENV \
     -g $RESOURCE_GROUP \
     --query "properties.staticIp" \
     -o tsv)
 
-# 7. Get the domain verification code.
+# 3. Get the domain verification code.
 DOMAIN_VERIFICATION_ID=$(az containerapp show \
                         -n $CONTAINER_APP \
                         -g $RESOURCE_GROUP \
                         -o tsv \
                         --query "properties.customDomainVerificationId")
 
-# 8. Using the DNS provider that is hosting your domain, create DNS records based on the record type 
+# 4. Using the DNS provider that is hosting your domain, create DNS records based on the record type 
 # you selected using the values shown in the Domain validation section. The records point the 
 # domain to your container app and verify that you own it.
 #     If you selected A record, create the following DNS records:
@@ -29,28 +38,28 @@ DOMAIN_VERIFICATION_ID=$(az containerapp show \
 #     A 	@ 	The IP address of your Container Apps environment.
 #     TXT 	asuid 	The domain verification code.
 
-# Remove old TXT record
+# 5. Remove old TXT record
 az network dns record-set txt delete \
     -g $RESOURCE_GROUP \
     -n $TXT_RECORD_NAME \
     --zone-name $ZONE_NAME \
     --yes
 
-# Add the TXT record for verification
+# 6. Add the TXT record for verification
 az network dns record-set txt add-record \
     -g $RESOURCE_GROUP \
     --zone-name $ZONE_NAME \
     --record-set-name $TXT_RECORD_NAME \
     --value $DOMAIN_VERIFICATION_ID
 
-# Remove old A record
+# 7. Remove old A record
 az network dns record-set a delete \
     -g $RESOURCE_GROUP \
     -n $A_RECORD_NAME \
     --zone-name $ZONE_NAME \
     --yes
 
-# Add the A record for the Container APP
+# 8. Add the A record for the Container APP
 az network dns record-set a add-record \
     -g $RESOURCE_GROUP \
     --zone-name $ZONE_NAME \
