@@ -17,7 +17,7 @@ jobs:
     timeout-minutes: 60
     env:
       PACKAGE: nginx-self-ca
-      AZURE_CONFIG_DIR: ${{ github.workspace }}/${{ github.job }}/.azure
+      AZURE_CONFIG_DIR: ~/.azure-${{ github.job }}
     steps:
       - name: Set Hostname
         run: |
@@ -182,7 +182,7 @@ jobs:
     timeout-minutes: 60
     env:
       PACKAGE: nginx
-      AZURE_CONFIG_DIR: ${{ github.workspace }}/${{ github.job }}/.azure
+      AZURE_CONFIG_DIR: ~/.azure-${{ github.job }}
     steps:
       - name: Set Hostname
         run: |
