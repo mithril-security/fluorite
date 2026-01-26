@@ -51,6 +51,7 @@ jobs:
       AZURE_CONFIG_DIR: /home/ubuntu/.azure-${{ matrix.job_id }}
       JOB_NAME: ${{ matrix.job_id }}
       VM_LOCATION: ${{ matrix.vm_location }}
+      VM_TYPE: ${{ matrix.vm_type }}
       ATTESTATION_BACKEND: ${{ matrix.attestation_backend }}
     steps:
       - name: Set Hostname
@@ -271,11 +272,11 @@ jobs:
           uv run main.py \
             --location ${{ env.VM_LOCATION }} \
             --resource-group-name "EndToEndTest-${{ env.JOB_NAME }}" \
-            --vm-type Standard_D4as_v4 \
+            --vm-type ${{ env.VM_TYPE }} \
             --num-control-plane-nodes 1 \
             --num-agent-nodes 1 \
             --operator-pem-cert-path ${{ env.OPERATOR_CERTIFICATE_PATH }} \
-            --vm-security-type TrustedLaunch \
+            --vm-security-type ${{ env.ATTESTATION_BACKEND }} \
             --image-resource-id "${{ env.AZURE_IMAGE }}" \
             --output-path ${{ env.DIR }}/cluster.json
 
