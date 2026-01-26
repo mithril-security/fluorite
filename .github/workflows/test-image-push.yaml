@@ -23,14 +23,6 @@ jobs:
 
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Build attestation-transparency-service and domain-monitor
-        run: |
-          curl "https://storage.googleapis.com/fluorite/${{ env.VERSION }}/gcp-cvm-notarizer/gcp_notarizer_measurements.json" > libraries/attestation/gcp-shielded-vm-attestation/gcp_notarizer_measurements.json
-           
-
-          earthly +attestation-transparency-service
-          earthly +domain-monitor
       
       - name: Docker Login
         uses: azure/docker-login@v1
@@ -38,17 +30,11 @@ jobs:
           login-server: mycr32671.azurecr.io
           username: mycr32671
           password: ${{ secrets.ACR_PASSWORD }}
+      
+      - name: Build attestation-transparency-service and domain-monitor
+        run: |
+          curl "https://storage.googleapis.com/fluorite/${{ env.VERSION }}/gcp-cvm-notarizer/gcp_notarizer_measurements.json" > libraries/attestation/gcp-shielded-vm-attestation/gcp_notarizer_measurements.json
+            
 
-      - name: Build and Push to ACR
-        uses: docker/build-push-action@v2
-        with:
-          push: true
-          tags: mycr32671.azurecr.io/attestation-transparency-service-image:latest
-          file: attestation-transparency-service/Dockerfile
-
-      - name: Build and Push to ACR
-        uses: docker/build-push-action@v2
-        with:
-          push: true
-          tags: mycr32671.azurecr.io/domain-monitor-image:latest
-          file: domain-monitor/Dockerfile
+          earthly --push +attestation-transparency-service-image
+          earthly --push +domain-monitor-image
