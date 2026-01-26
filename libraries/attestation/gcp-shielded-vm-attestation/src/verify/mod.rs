@@ -94,7 +94,7 @@ pub fn verify_notarizer_response(
 
     // Step 2: Validate that notarizer PCR data is a superset of golden PCR values
     if !golden_pcr_data.is_subset(&notarizer_pcr_data) {
-        bail!("Notarizer PCR data does not match golden PCR values");
+        bail!("Notarizer PCR data does not match golden PCR values, expected: {:?}, got: {:?}", golden_pcr_data, notarizer_pcr_data);
     }
     log::debug!("Notarizer PCR data validated against golden values");
 
