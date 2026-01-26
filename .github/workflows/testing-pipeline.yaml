@@ -35,20 +35,20 @@ jobs:
             vm_type: Standard_D4as_v4
             attestation_backend: AzureTrustedLaunchVM
             gpu: false
-          # - job_id: test-ray-tl
-          #   package: ray-tl
-          #   include_ca: true
-          #   vm_location: francecentral
-          #   vm_type: Standard_NC24ads_A100_v4
-          #   attestation_backend: AzureTrustedLaunchVM
-          #   gpu: true
-          # - job_id: test-ray
-          #   package: ray
-          #   include_ca: true
-          #   vm_location: eastus2
-          #   vm_type: Standard_NCC40ads_H100_v5
-          #   attestation_backend: AzureConfidentialVM
-          #   gpu: true
+          - job_id: test-ray-tl
+            package: ray-tl
+            include_ca: true
+            vm_location: francecentral
+            vm_type: Standard_NC24ads_A100_v4
+            attestation_backend: AzureTrustedLaunchVM
+            gpu: true
+          - job_id: test-ray
+            package: ray
+            include_ca: true
+            vm_location: eastus2
+            vm_type: Standard_NCC40ads_H100_v5
+            attestation_backend: AzureConfidentialVM
+            gpu: true
     env:
       PACKAGE: ${{ matrix.package }}
       # We use job_id from matrix instead of github.job to stay consistent
