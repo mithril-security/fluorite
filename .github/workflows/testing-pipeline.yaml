@@ -108,14 +108,14 @@ jobs:
           OPERATOR_PRIVATE_KEY_PATH="${{ env.DIR }}/certificates/key.pem"
           echo "OPERATOR_PRIVATE_KEY_PATH=$OPERATOR_PRIVATE_KEY_PATH" >> $GITHUB_ENV
 
+          DEPLOYMENT_CONFIG_PATH="${{ env.DIR }}/deployment_config.yaml"
+          echo "DEPLOYMENT_CONFIG_PATH=$DEPLOYMENT_CONFIG_PATH" >> $GITHUB_ENV
+
           if [ "${{ matrix.include_ca }}" = "true" ]; then
 
             # Encode the operator certificate for the next jobs
             OPERATOR_CERTIFICATE_B64=$(base64 -w0 $OPERATOR_CERTIFICATE_PATH)
             echo "OPERATOR_CERTIFICATE_B64=$OPERATOR_CERTIFICATE_B64" >> $GITHUB_ENV
-
-            DEPLOYMENT_CONFIG_PATH="${{ env.DIR }}/deployment_config.yaml"
-            echo "DEPLOYMENT_CONFIG_PATH=$DEPLOYMENT_CONFIG_PATH" >> $GITHUB_ENV
 
             ATS_ENDPOINT="https://ats.${{ env.HOSTNAME }}/verify_csr"
             echo "ATS_ENDPOINT=$ATS_ENDPOINT" >> $GITHUB_ENV
