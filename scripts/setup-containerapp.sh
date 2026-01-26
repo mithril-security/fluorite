@@ -1,3 +1,7 @@
+#!/bin/bash
+
+set -euxo pipefail
+
 # Automates https://learn.microsoft.com/en-us/azure/container-apps/custom-domains-managed-certificates?pivots=azure-cli
 RESOURCE_GROUP=$1
 CONTAINER_APP=$2
