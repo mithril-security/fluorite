@@ -394,7 +394,7 @@ def create_notarizer_cvm(
 def wait_for_notarizer_service(
     ip: str,
     port: int,
-    operator_pem_cert_path: str,
+    operator_cert_path: str,
     operator_key_path: str,
     timeout: int = 300,
 ) -> bool:
@@ -408,7 +408,7 @@ def wait_for_notarizer_service(
         try:
             response = requests.get(
                 url,
-                cert=(operator_pem_cert_path, operator_key_path),
+                cert=(operator_cert_path, operator_key_path),
                 verify=False,
                 timeout=5,
             )
@@ -504,7 +504,7 @@ def get_notarizer_endorsement(
     target_project: str,
     target_zone: str,
     target_instance: str,
-    operator_pem_cert_path: str,
+    operator_cert_path: str,
     operator_key_path: str,
 ) -> dict:
     """
@@ -525,7 +525,7 @@ def get_notarizer_endorsement(
     response = requests.post(
         url,
         json=request_body,
-        cert=(operator_pem_cert_path, operator_key_path),
+        cert=(operator_cert_path, operator_key_path),
         verify=False,  # Self-signed server cert
         timeout=30,
     )
@@ -592,7 +592,7 @@ def main(
     project: str,
     zone: str,
     subnet: str,
-    operator_pem_cert_path: str,
+    operator_cert_path: str,
     operator_key_path: str,
     num_servers: int,
     num_agents: int,
