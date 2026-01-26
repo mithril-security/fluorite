@@ -290,12 +290,13 @@ jobs:
             MASTER_IP=$(az vm list-ip-addresses -g "EndToEndTest-${{ env.JOB_NAME }}" -n master-vm --query "[].virtualMachine.network.publicIpAddresses[0].ipAddress" -o tsv)
 
             # Add the A record for the master vm
+            # TTL set to 10 minutes
             az network dns record-set a add-record \
               --resource-group $RESOURCE_GROUP \
               --zone-name ${{ env.ZONE_NAME }} \
               --record-set-name $A_RECORD_NAME \
               --ipv4-address $MASTER_IP  \
-              --ttl 3600
+              --ttl 600
 
             echo "MASTER_IP=$MASTER_IP" >> $GITHUB_ENV
 
@@ -326,7 +327,7 @@ jobs:
           echo "Checking if ${{ env.HOSTNAME }} points to ${{ env.MASTER_IP }}..."
 
           while [ $COUNT -lt $MAX_RETRIES ]; do
-              CURRENT_IP=$(dig +short @1.1.1.1 A ${{ env.HOSTNAME }})
+              CURRENT_IP=$(dig A ${{ env.HOSTNAME }})
 
               if [ "$CURRENT_IP" == "${{ env.MASTER_IP }}" ]; then
                   exit 0
