@@ -27,24 +27,28 @@ jobs:
             vm_location: francecentral
             vm_type: Standard_D4as_v4
             attestation_backend: AzureTrustedLaunchVM
+            gpu: false
           - job_id: test-nginx
             package: nginx
             include_ca: true
             vm_location: eastus2
             vm_type: Standard_D4as_v4
             attestation_backend: AzureTrustedLaunchVM
+            gpu: false
           - job_id: test-ray-tl
             package: ray-tl
             include_ca: true
             vm_location: francecentral
             vm_type: Standard_NC24ads_A100_v4
             attestation_backend: AzureTrustedLaunchVM
+            gpu: true
           - job_id: test-ray
             package: ray
             include_ca: true
             vm_location: eastus2
             vm_type: Standard_NCC40ads_H100_v5
             attestation_backend: AzureConfidentialVM
+            gpu: true
     env:
       PACKAGE: ${{ matrix.package }}
       # We use job_id from matrix instead of github.job to stay consistent
@@ -57,10 +61,6 @@ jobs:
       - name: Set Hostname
         run: |
           echo "HOSTNAME=${{ env.JOB_NAME }}.${{ env.ZONE_NAME }}" >> $GITHUB_ENV
-          VERSION_FORMATTED="${VERSION//./-}"
-          echo "AZURE_IMAGE=${{ env.AZURE_GALLERY_ID }}/fluorite-os-${VERSION_FORMATTED}/versions/1.0.0" >> $GITHUB_ENV
-          echo "AZURE_IMAGE_GPU=${{ env.AZURE_GALLERY_ID }}/fluorite-os-with-gpu-${VERSION_FORMATTED}/versions/1.0.0" >> $GITHUB_ENV
-
           mkdir -p "${{ github.workspace }}/${{ env.JOB_NAME }}"
           echo "DIR=${{ github.workspace }}/${{ env.JOB_NAME }}" >> $GITHUB_ENV
 
@@ -100,8 +100,17 @@ jobs:
 
       - name: Inject variables in the job environment
         run: |
+
+          VERSION_FORMATTED="${VERSION//./-}"
+          
+          if [ "${{ matrix.gpu }}" = "false" ]; then
+            echo "AZURE_IMAGE=${{ env.AZURE_GALLERY_ID }}/fluorite-os-${VERSION_FORMATTED}/versions/1.0.0" >> $GITHUB_ENV
+            MEASUREMENT_URL="https://storage.googleapis.com/fluorite/${{ env.VERSION }}/fluorite-os/cloud-vtpm/os-measurement.json"
+          else
+            echo "AZURE_IMAGE=${{ env.AZURE_GALLERY_ID }}/fluorite-os-with-gpu-${VERSION_FORMATTED}/versions/1.0.0" >> $GITHUB_ENV
+            MEASUREMENT_URL="https://storage.googleapis.com/fluorite/${{ env.VERSION }}/fluorite-os/cloud-vtpm-gpu/os-measurement.json"
+          fi
           # Get the latest FluoriteOS image published on Azure Image Gallery and it's PCR4 Golden Value
-          MEASUREMENT_URL="https://storage.googleapis.com/fluorite/${{ env.VERSION }}/fluorite-os/cloud-vtpm/os-measurement.json"
           OS_MEASUREMENT=$(curl $MEASUREMENT_URL | jq -r .fluoriteos_pcr4)
           echo "OS_MEASUREMENT=$OS_MEASUREMENT" >> $GITHUB_ENV
 
@@ -115,11 +124,6 @@ jobs:
           BUNDLE_HASH=$(sha256sum $PACKAGE_PATH | awk '{print $1}')
           echo "BUNDLE_HASH=$BUNDLE_HASH" >> $GITHUB_ENV
 
-          # Generate the password for the Attestation Transparency Service
-          ATS_PASSWORD=$(openssl rand -hex 32)
-          echo "::add-mask::$ATS_PASSWORD"        
-          echo "ATS_PASSWORD=$ATS_PASSWORD" >> $GITHUB_ENV
-
           OPERATOR_CERTIFICATE_PATH="${{ env.DIR }}/certificates/cert.pem"
           echo "OPERATOR_CERTIFICATE_PATH=$OPERATOR_CERTIFICATE_PATH" >> $GITHUB_ENV
 
@@ -130,6 +134,10 @@ jobs:
           echo "DEPLOYMENT_CONFIG_PATH=$DEPLOYMENT_CONFIG_PATH" >> $GITHUB_ENV
 
           if [ "${{ matrix.include_ca }}" = "true" ]; then
+            # Generate the password for the Attestation Transparency Service
+            ATS_PASSWORD=$(openssl rand -hex 32)
+            echo "::add-mask::$ATS_PASSWORD"        
+            echo "ATS_PASSWORD=$ATS_PASSWORD" >> $GITHUB_ENV
 
             # Encode the operator certificate for the next jobs
             OPERATOR_CERTIFICATE_B64=$(base64 -w0 $OPERATOR_CERTIFICATE_PATH)
@@ -152,7 +160,6 @@ jobs:
 
             BLOB_STORAGE_URL="https://proof.ivan.mithrilsecurity.io/"
             echo "BLOB_STORAGE_URL=$BLOB_STORAGE_URL" >> $GITHUB_ENV
-
           fi
 
           RESOURCE_GROUP="ivan-fli-multinode"
