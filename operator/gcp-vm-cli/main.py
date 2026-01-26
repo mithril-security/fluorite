@@ -129,7 +129,7 @@ def run_gsutil(
     return run_command(["gsutil"] + args, check=check, capture_output=capture_output)
 
 
-def create_firewall_rules(config: GCPConfig, network: str):
+def create_firewall_rules(config: GCPConfig):
     """
     Create GCP firewall rules for the fluorite cluster.
     
@@ -164,7 +164,7 @@ def create_firewall_rules(config: GCPConfig, network: str):
         gcloud_args = [
             "compute", "firewall-rules", "create", full_name,
             f"--project={config.project}",
-            f"--network={network}",
+            f"--network={config.network}",
             f"--target-tags={','.join(target_tags)}",
             f"--allow={','.join(allow_entries)}",
             "--direction=INGRESS",
