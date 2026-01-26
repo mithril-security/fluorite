@@ -350,6 +350,8 @@ attestation-transparency-service:
     SAVE ARTIFACT /ats AS LOCAL ./attestation-transparency-service/target/release/attestation-transparency-service
 
 attestation-transparency-service-image:
+    ARG REGISTRY=mycr32671.azurecr.io
+    ARG TAG=latest
     # Use a minimal base image for the final, smaller runtime image
     FROM ubuntu:25.04
 
@@ -377,7 +379,7 @@ attestation-transparency-service-image:
     EXPOSE 8000
     ENTRYPOINT ["./attestation-transparency-service"]
 
-    SAVE IMAGE --push attestation-transparency-service:latest
+    SAVE IMAGE --push ${REGISTRY}/attestation-transparency-service:${TAG}
 
 domain-monitor:
     FROM +rust-builder
@@ -404,6 +406,8 @@ domain-monitor:
     SAVE ARTIFACT /monitor AS LOCAL ./domain-monitor/target/release/domain-monitor
 
 domain-monitor-image:
+    ARG REGISTRY=mycr32671.azurecr.io
+    ARG TAG=latest
     # Use a minimal base image for the final, smaller runtime image
     FROM ubuntu:25.04
 
@@ -431,7 +435,7 @@ domain-monitor-image:
     EXPOSE 8000
     ENTRYPOINT ["./domain-monitor"]
 
-    SAVE IMAGE --push domain-monitor:latest
+    SAVE IMAGE --push ${REGISTRY}/domain-monitor:${TAG}
 client:
     FROM +rust-builder
     
