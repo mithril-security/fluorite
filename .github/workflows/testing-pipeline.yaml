@@ -13,187 +13,38 @@ env:
   AZURE_GALLERY_ID: "/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/fluorite-azure-registries/providers/Microsoft.Compute/galleries/FluoriteGallery/images"
 
 jobs:
-  test-nginx-self-ca:
+  test:
     runs-on: fluorite-runner
     timeout-minutes: 60
+    strategy:
+      # Use fail-fast: false so if one test fails, the other continues
+      fail-fast: false
+      matrix:
+        include:
+          - job_id: test-nginx-self-ca
+            package: nginx-self-ca
+            include_ca: false
+            vm_location: francecentral
+          - job_id: test-nginx
+            package: nginx
+            include_ca: true
+            vm_location: eastus2
     env:
-      PACKAGE: nginx-self-ca
-      AZURE_CONFIG_DIR: /home/ubuntu/.azure-${{ github.job }}
+      PACKAGE: ${{ matrix.package }}
+      # We use job_id from matrix instead of github.job to stay consistent
+      AZURE_CONFIG_DIR: /home/ubuntu/.azure-${{ matrix.job_id }}
+      JOB_NAME: ${{ matrix.job_id }}
+      VM_LOCATION: ${{ matrix.vm_location }}
     steps:
       - name: Set Hostname
         run: |
-          echo "HOSTNAME=${{ github.job }}.${{ env.ZONE_NAME }}" >> $GITHUB_ENV
+          echo "HOSTNAME=${{ env.JOB_NAME }}.${{ env.ZONE_NAME }}" >> $GITHUB_ENV
           VERSION_FORMATTED="${VERSION//./-}"
           echo "AZURE_IMAGE=${{ env.AZURE_GALLERY_ID }}/fluorite-os-${VERSION_FORMATTED}/versions/1.0.0" >> $GITHUB_ENV
           echo "AZURE_IMAGE_GPU=${{ env.AZURE_GALLERY_ID }}/fluorite-os-with-gpu-${VERSION_FORMATTED}/versions/1.0.0" >> $GITHUB_ENV
 
-          mkdir -p "${{ github.workspace }}/${{ github.job }}"
-          echo "DIR=${{ github.workspace }}/${{ github.job }}" >> $GITHUB_ENV
-
-      - name: Setup Earthly
-        uses: earthly/actions-setup@v1
-        with:
-          version: v0.8.16
-
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Build provisioning bundle
-        run: earthly --strict -P  +zarf-${{ env.PACKAGE }}
-
-      - name: Run setup build step
-        run: |
-          # Get the this version's gcp_notarizer_measurements.json 
-          curl "https://storage.googleapis.com/fluorite/${{ env.VERSION }}/gcp-cvm-notarizer/gcp_notarizer_measurements.json" > libraries/attestation/gcp-shielded-vm-attestation/gcp_notarizer_measurements.json
-                    
-          earthly --strict -P  +setup
-
-      - name: Generate Operator Certificates
-        run: |
-          ./operator/generate-certificates-cli/target/release/generate-certificates-cli --force --cert-directory-path ${{ env.DIR }}/certificates
-
-      - name: Azure login
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
-        with:
-          enable-cache: true
-
-      - name: Inject variables in the job environment
-        run: |
-          # Get the latest FluoriteOS image published on Azure Image Gallery and it's PCR4 Golden Value
-          MEASUREMENT_URL="https://storage.googleapis.com/fluorite/${{ env.VERSION }}/fluorite-os/cloud-vtpm/os-measurement.json"
-          OS_MEASUREMENT=$(curl $MEASUREMENT_URL | jq -r .fluoriteos_pcr4)
-          echo "OS_MEASUREMENT=$OS_MEASUREMENT" >> $GITHUB_ENV
-
-          PLATFORM_MEASUREMENTS_PATH="./measurements/measurements_azure.json"
-          echo "PLATFORM_MEASUREMENTS_PATH=$PLATFORM_MEASUREMENTS_PATH" >> $GITHUB_ENV
-
-          PACKAGE_PATH="./packages/zarf-package-${{ env.PACKAGE }}-amd64-1.0.0.tar.zst"
-          echo "PACKAGE_PATH=$PACKAGE_PATH" >> $GITHUB_ENV
-
-          # Compute the hash of the provisioning package
-          BUNDLE_HASH=$(sha256sum $PACKAGE_PATH | awk '{print $1}')
-          echo "BUNDLE_HASH=$BUNDLE_HASH" >> $GITHUB_ENV
-
-          OPERATOR_CERTIFICATE_PATH="${{ env.DIR }}/certificates/cert.pem"
-          echo "OPERATOR_CERTIFICATE_PATH=$OPERATOR_CERTIFICATE_PATH" >> $GITHUB_ENV
-
-          OPERATOR_PRIVATE_KEY_PATH="${{ env.DIR }}/certificates/key.pem"
-          echo "OPERATOR_PRIVATE_KEY_PATH=$OPERATOR_PRIVATE_KEY_PATH" >> $GITHUB_ENV
-
-          # Encode the operator certificate for the next jobs
-          OPERATOR_CERTIFICATE_B64=$(base64 -w0 $OPERATOR_CERTIFICATE_PATH)
-          echo "OPERATOR_CERTIFICATE_B64=$OPERATOR_CERTIFICATE_B64" >> $GITHUB_ENV
-
-          DEPLOYMENT_CONFIG_PATH="${{ env.DIR }}/deployment_config.yaml"
-          echo "DEPLOYMENT_CONFIG_PATH=$DEPLOYMENT_CONFIG_PATH" >> $GITHUB_ENV
-
-          ATTESTATION_BACKEND="AzureTrustedLaunchVM"
-          echo "ATTESTATION_BACKEND=$ATTESTATION_BACKEND" >> $GITHUB_ENV
-
-      - name: Create deployment config file
-        run: |
-          cat << EOF > ${{ env.DEPLOYMENT_CONFIG_PATH }}
-          package:
-            deploy:
-              set:
-          EOF
-
-          yq -iy '.package.deploy.set.HOSTNAME = "${{ env.HOSTNAME }}"' ${{ env.DEPLOYMENT_CONFIG_PATH }}
-
-      - name: Spawn VMs for test
-        working-directory: operator/vm-cli/
-        run: |
-
-          uv sync --locked --all-extras --dev
-          uv run main.py \
-            --location francecentral \
-            --resource-group-name "EndToEndTest-${{ github.job }}" \
-            --vm-type Standard_D4as_v4 \
-            --num-control-plane-nodes 1 \
-            --num-agent-nodes 1 \
-            --operator-pem-cert-path ${{ env.OPERATOR_CERTIFICATE_PATH }} \
-            --vm-security-type TrustedLaunch \
-            --image-resource-id "${{ env.AZURE_IMAGE }}" \
-            --output-path ${{ env.DIR }}/cluster.json
-
-      - name: Create A record for master VM
-        uses: azure/cli@v2
-        with:
-          azcliversion: latest
-          inlineScript: |
-            RESOURCE_GROUP="ivan-fli-multinode"            
-            A_RECORD_NAME="${{ github.job }}"
-            MASTER_IP=$(az vm list-ip-addresses -g "EndToEndTest-${{ github.job }}" -n master-vm --query "[].virtualMachine.network.publicIpAddresses[0].ipAddress" -o tsv)
-
-            # Add the A record for the master vm
-            az network dns record-set a add-record \
-              --resource-group $RESOURCE_GROUP \
-              --zone-name ${{ env.ZONE_NAME }} \
-              --record-set-name $A_RECORD_NAME \
-              --ipv4-address $MASTER_IP  \
-              --ttl 3600
-
-      - name: Build CLI tools
-        run: earthly --strict -P  +operator-cli
-
-      - name: Provision VMs
-        run: |
-          ./operator/operator-cli/target/release/operator-cli \
-            --zarf-package-path ${{ env.PACKAGE_PATH }} \
-            --os-measurement ${{ env.OS_MEASUREMENT }} \
-            --platform-measurements-path ${{ env.PLATFORM_MEASUREMENTS_PATH }} \
-            --operator-cert-path ${{ env.OPERATOR_CERTIFICATE_PATH }} \
-            --operator-private-key-path ${{ env.OPERATOR_PRIVATE_KEY_PATH }} \
-            --cluster-file-path ${{ env.DIR }}/cluster.json \
-            --deployment-config-path ${{ env.DEPLOYMENT_CONFIG_PATH }} \
-            --attestation-backend ${{ env.ATTESTATION_BACKEND }}
-
-      - name: Build Client app
-        run: earthly --strict -P  +client
-
-      - name: Run client app
-        run: |
-
-          echo "Wait for DNS to propagate" && sleep 120
-
-          ./multinode-provisioning/examples/client/target/release/client \
-            --master-url "https://${{ env.HOSTNAME }}" \
-            --operator-certificate-path ${{ env.OPERATOR_CERTIFICATE_PATH }} \
-            --bundle-hash ${{ env.BUNDLE_HASH }} \
-            --os-measurement ${{ env.OS_MEASUREMENT }} \
-            --platform-measurements-path ${{ env.PLATFORM_MEASUREMENTS_PATH }}  \
-            --attestation-backend ${{ env.ATTESTATION_BACKEND }}
-
-      - name: Delete resource group
-        if: always()
-        uses: azure/cli@v2
-        with:
-          azcliversion: latest
-          inlineScript: |
-            az group delete -n "EndToEndTest-${{ github.job }}" --force-deletion-types Microsoft.Compute/virtualMachines --yes
-  test-nginx:
-    runs-on: fluorite-runner
-    timeout-minutes: 60
-    env:
-      PACKAGE: nginx
-      AZURE_CONFIG_DIR: /home/ubuntu/.azure-${{ github.job }}
-    steps:
-      - name: Set Hostname
-        run: |
-          echo "HOSTNAME=${{ github.job }}.${{ env.ZONE_NAME }}" >> $GITHUB_ENV
-          VERSION_FORMATTED="${VERSION//./-}"
-          echo "AZURE_IMAGE=${{ env.AZURE_GALLERY_ID }}/fluorite-os-${VERSION_FORMATTED}/versions/1.0.0" >> $GITHUB_ENV
-          echo "AZURE_IMAGE_GPU=${{ env.AZURE_GALLERY_ID }}/fluorite-os-with-gpu-${VERSION_FORMATTED}/versions/1.0.0" >> $GITHUB_ENV
-
-          mkdir -p "${{ github.workspace }}/${{ github.job }}"
-          echo "DIR=${{ github.workspace }}/${{ github.job }}" >> $GITHUB_ENV
+          mkdir -p "${{ github.workspace }}/${{ env.JOB_NAME }}"
+          echo "DIR=${{ github.workspace }}/${{ env.JOB_NAME }}" >> $GITHUB_ENV
 
       - name: Setup Earthly
         uses: earthly/actions-setup@v1
@@ -257,27 +108,34 @@ jobs:
           OPERATOR_PRIVATE_KEY_PATH="${{ env.DIR }}/certificates/key.pem"
           echo "OPERATOR_PRIVATE_KEY_PATH=$OPERATOR_PRIVATE_KEY_PATH" >> $GITHUB_ENV
 
-          # Encode the operator certificate for the next jobs
-          OPERATOR_CERTIFICATE_B64=$(base64 -w0 $OPERATOR_CERTIFICATE_PATH)
-          echo "OPERATOR_CERTIFICATE_B64=$OPERATOR_CERTIFICATE_B64" >> $GITHUB_ENV
+          if [ "${{ matrix.include_ca }}" = "true" ]; then
 
-          DEPLOYMENT_CONFIG_PATH="${{ env.DIR }}/deployment_config.yaml"
-          echo "DEPLOYMENT_CONFIG_PATH=$DEPLOYMENT_CONFIG_PATH" >> $GITHUB_ENV
+            # Encode the operator certificate for the next jobs
+            OPERATOR_CERTIFICATE_B64=$(base64 -w0 $OPERATOR_CERTIFICATE_PATH)
+            echo "OPERATOR_CERTIFICATE_B64=$OPERATOR_CERTIFICATE_B64" >> $GITHUB_ENV
 
-          ATS_ENDPOINT="https://ats.${{ env.HOSTNAME }}/verify_csr"
-          echo "ATS_ENDPOINT=$ATS_ENDPOINT" >> $GITHUB_ENV
+            DEPLOYMENT_CONFIG_PATH="${{ env.DIR }}/deployment_config.yaml"
+            echo "DEPLOYMENT_CONFIG_PATH=$DEPLOYMENT_CONFIG_PATH" >> $GITHUB_ENV
 
-          ATS_CONTAINER_APP_NAME="ats-app-${{ github.job }}"
-          echo "ATS_CONTAINER_APP_NAME=$ATS_CONTAINER_APP_NAME" >> $GITHUB_ENV
+            ATS_ENDPOINT="https://ats.${{ env.HOSTNAME }}/verify_csr"
+            echo "ATS_ENDPOINT=$ATS_ENDPOINT" >> $GITHUB_ENV
 
-          ATS_CONTAINER_APP_ENVIRONMENT="ats-env-${{ github.job }}"
-          echo "ATS_CONTAINER_APP_ENVIRONMENT=$ATS_CONTAINER_APP_ENVIRONMENT" >> $GITHUB_ENV
+            ATS_CONTAINER_APP_NAME="ats-app-${{ env.JOB_NAME }}"
+            echo "ATS_CONTAINER_APP_NAME=$ATS_CONTAINER_APP_NAME" >> $GITHUB_ENV
 
-          DOMAIN_MONITOR_CONTAINER_APP_NAME="dom-mon-app-${{ github.job }}"
-          echo "DOMAIN_MONITOR_CONTAINER_APP_NAME=$DOMAIN_MONITOR_CONTAINER_APP_NAME" >> $GITHUB_ENV
+            ATS_CONTAINER_APP_ENVIRONMENT="ats-env-${{ env.JOB_NAME }}"
+            echo "ATS_CONTAINER_APP_ENVIRONMENT=$ATS_CONTAINER_APP_ENVIRONMENT" >> $GITHUB_ENV
 
-          DOMAIN_MONITOR_CONTAINER_APP_ENVIRONMENT="dom-mon-env-${{ github.job }}"
-          echo "DOMAIN_MONITOR_CONTAINER_APP_ENVIRONMENT=$DOMAIN_MONITOR_CONTAINER_APP_ENVIRONMENT" >> $GITHUB_ENV
+            DOMAIN_MONITOR_CONTAINER_APP_NAME="dom-mon-app-${{ env.JOB_NAME }}"
+            echo "DOMAIN_MONITOR_CONTAINER_APP_NAME=$DOMAIN_MONITOR_CONTAINER_APP_NAME" >> $GITHUB_ENV
+
+            DOMAIN_MONITOR_CONTAINER_APP_ENVIRONMENT="dom-mon-env-${{ env.JOB_NAME }}"
+            echo "DOMAIN_MONITOR_CONTAINER_APP_ENVIRONMENT=$DOMAIN_MONITOR_CONTAINER_APP_ENVIRONMENT" >> $GITHUB_ENV
+
+            BLOB_STORAGE_URL="https://proof.ivan.mithrilsecurity.io/"
+            echo "BLOB_STORAGE_URL=$BLOB_STORAGE_URL" >> $GITHUB_ENV
+
+          fi
 
           RESOURCE_GROUP="ivan-fli-multinode"
           echo "RESOURCE_GROUP=$RESOURCE_GROUP" >> $GITHUB_ENV
@@ -294,12 +152,15 @@ jobs:
           EOF
 
           yq -iy '.package.deploy.set.HOSTNAME = "${{ env.HOSTNAME }}"' ${{ env.DEPLOYMENT_CONFIG_PATH }}
-          yq -iy '.package.deploy.set.ATS_PASSWORD = "${{ env.ATS_PASSWORD }}"' ${{ env.DEPLOYMENT_CONFIG_PATH }}
-          yq -iy '.package.deploy.set.PUBLIC_CA_KEY = "${{ secrets.PUBLIC_CA_KEY }}"' ${{ env.DEPLOYMENT_CONFIG_PATH }}
-          yq -iy '.package.deploy.set.PUBLIC_CA_EMAIL = "${{ secrets.PUBLIC_CA_EMAIL }}"' ${{ env.DEPLOYMENT_CONFIG_PATH }}
-          yq -iy '.package.deploy.set.ATS_ENDPOINT = "${{ env.ATS_ENDPOINT }}"' ${{ env.DEPLOYMENT_CONFIG_PATH }}
+          if [ "${{ matrix.include_ca }}" = "true" ]; then
+            yq -iy '.package.deploy.set.ATS_PASSWORD = "${{ env.ATS_PASSWORD }}"' ${{ env.DEPLOYMENT_CONFIG_PATH }}
+            yq -iy '.package.deploy.set.PUBLIC_CA_KEY = "${{ secrets.PUBLIC_CA_KEY }}"' ${{ env.DEPLOYMENT_CONFIG_PATH }}
+            yq -iy '.package.deploy.set.PUBLIC_CA_EMAIL = "${{ secrets.PUBLIC_CA_EMAIL }}"' ${{ env.DEPLOYMENT_CONFIG_PATH }}
+            yq -iy '.package.deploy.set.ATS_ENDPOINT = "${{ env.ATS_ENDPOINT }}"' ${{ env.DEPLOYMENT_CONFIG_PATH }}
+          fi
 
       - name: Build and deploy Attestation Transparency Service Container App
+        if: matrix.include_ca == true
         uses: azure/container-apps-deploy-action@v2
         with:
           appSourcePath: ${{ github.workspace }}
@@ -324,34 +185,13 @@ jobs:
             OS_MEASUREMENT="${{ env.OS_MEASUREMENT }}" 
             RESOURCE_GROUP_NAME="${{ env.RESOURCE_GROUP }}"
             ATTESTATION_STORAGE_ACCOUNT_NAME="attestationproofs"
-            STORAGE_URL="https://proof.ivan.mithrilsecurity.io/"
+            STORAGE_URL="${{ env.BLOB_STORAGE_URL }}"
             AZURE_SUBSCRIPTION_ID="${{ secrets.AZURE_SUBSCRIPTION_ID }}"
             IDENTITY_RESOURCE_ID="/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ env.RESOURCE_GROUP }}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/attestation-transparency-service-identity"
             PLATFORM_MEASUREMENTS_PATH="${{ env.PLATFORM_MEASUREMENTS_PATH }}"
 
-      - name: Setup attestation-transparency-service
-        uses: azure/cli@v2
-        with:
-          azcliversion: latest
-          inlineScript: |
-            set -euo pipefail
-
-            RESOURCE_GROUP="${{ env.RESOURCE_GROUP }}"
-            CONTAINER_APP="${{ env.ATS_CONTAINER_APP_NAME }}"
-            CONTAINER_APP_ENV="${{ env.ATS_CONTAINER_APP_ENVIRONMENT }}"
-
-            A_RECORD_NAME="ats.${{ github.job }}"
-
-            # Assign attestation-transparency-service-identity to Container App
-            # This is needed because the container needs permission to write to Azure Blob Storage
-            az containerapp identity assign \
-              --name $CONTAINER_APP \
-              --resource-group $RESOURCE_GROUP \
-              --user-assigned attestation-transparency-service-identity
-
-            ./scripts/setup-containerapp.sh $RESOURCE_GROUP $CONTAINER_APP $CONTAINER_APP_ENV $ZONE_NAME $A_RECORD_NAME
-
       - name: Build and deploy domain-monitor Container App
+        if: matrix.include_ca == true
         uses: azure/container-apps-deploy-action@v2
         with:
           appSourcePath: ${{ github.workspace }}
@@ -373,20 +213,39 @@ jobs:
             OPERATOR_CERTIFICATE_B64="${{ env.OPERATOR_CERTIFICATE_B64 }}"
             BUNDLE_HASH="${{ env.BUNDLE_HASH }}"
             OS_MEASUREMENT="${{ env.OS_MEASUREMENT }}" 
-            STORAGE_URL="https://proof.ivan.mithrilsecurity.io/"
+            STORAGE_URL="${{ env.BLOB_STORAGE_URL }}"
             PLATFORM_MEASUREMENTS_PATH="${{ env.PLATFORM_MEASUREMENTS_PATH }}"
-      
-      - name: Setup domain-monitor
+
+      - name: Setup attestation-transparency and domain-monitor services
+        if: matrix.include_ca == true
         uses: azure/cli@v2
         with:
           azcliversion: latest
           inlineScript: |
             set -euo pipefail
 
+            # Shared
             RESOURCE_GROUP="${{ env.RESOURCE_GROUP }}"
+            ZONE_NAME="${{ env.ZONE_NAME }}"
+
+            # Setup attestation-transparency
+            CONTAINER_APP="${{ env.ATS_CONTAINER_APP_NAME }}"
+            CONTAINER_APP_ENV="${{ env.ATS_CONTAINER_APP_ENVIRONMENT }}"
+            A_RECORD_NAME="ats.${{ env.JOB_NAME }}"
+
+            # Assign attestation-transparency-service-identity to Container App
+            # This is needed because the container needs permission to write to Azure Blob Storage
+            az containerapp identity assign \
+              --name $CONTAINER_APP \
+              --resource-group $RESOURCE_GROUP \
+              --user-assigned attestation-transparency-service-identity
+
+            ./scripts/setup-containerapp.sh $RESOURCE_GROUP $CONTAINER_APP $CONTAINER_APP_ENV $ZONE_NAME $A_RECORD_NAME
+
+            # Setup domain-monitor
             CONTAINER_APP="${{ env.DOMAIN_MONITOR_CONTAINER_APP_NAME }}"
             CONTAINER_APP_ENV="${{ env.DOMAIN_MONITOR_CONTAINER_APP_ENVIRONMENT }}"
-            A_RECORD_NAME="domainmonitor.${{ github.job }}"
+            A_RECORD_NAME="domainmonitor.${{ env.JOB_NAME }}"
 
             ./scripts/setup-containerapp.sh $RESOURCE_GROUP $CONTAINER_APP $CONTAINER_APP_ENV $ZONE_NAME $A_RECORD_NAME
 
@@ -396,8 +255,8 @@ jobs:
 
           uv sync --locked --all-extras --dev
           uv run main.py \
-            --location eastus2 \
-            --resource-group-name "EndToEndTest-${{ github.job }}" \
+            --location ${{ env.VM_LOCATION }} \
+            --resource-group-name "EndToEndTest-${{ env.JOB_NAME }}" \
             --vm-type Standard_D4as_v4 \
             --num-control-plane-nodes 1 \
             --num-agent-nodes 1 \
@@ -411,9 +270,9 @@ jobs:
         with:
           azcliversion: latest
           inlineScript: |
-            RESOURCE_GROUP="ivan-fli-multinode"            
-            A_RECORD_NAME="${{ github.job }}"
-            MASTER_IP=$(az vm list-ip-addresses -g "EndToEndTest-${{ github.job }}" -n master-vm --query "[].virtualMachine.network.publicIpAddresses[0].ipAddress" -o tsv)
+            RESOURCE_GROUP="${{ env.RESOURCE_GROUP }}"            
+            A_RECORD_NAME="${{ env.JOB_NAME }}"
+            MASTER_IP=$(az vm list-ip-addresses -g "EndToEndTest-${{ env.JOB_NAME }}" -n master-vm --query "[].virtualMachine.network.publicIpAddresses[0].ipAddress" -o tsv)
 
             # Add the A record for the master vm
             az network dns record-set a add-record \
@@ -422,6 +281,8 @@ jobs:
               --record-set-name $A_RECORD_NAME \
               --ipv4-address $MASTER_IP  \
               --ttl 3600
+
+            echo "MASTER_IP=$MASTER_IP" >> $GITHUB_ENV
 
       - name: Build CLI tools
         run: earthly --strict -P  +operator-cli
@@ -441,19 +302,41 @@ jobs:
       - name: Build Client app
         run: earthly --strict -P  +client
 
-      - name: Run client app
+      - name: Wait for DNS propagation
         run: |
+          # Check every 10 seconds for 2 minutes
+          MAX_RETRIES=12
+          COUNT=0
 
-          echo "Wait for DNS to propagate" && sleep 120
+          echo "Checking if ${{ env.HOSTNAME }} points to ${{ env.MASTER_IP }}..."
+
+          while [ $COUNT -lt $MAX_RETRIES ]; do
+              CURRENT_IP=$(dig +short @1.1.1.1 A ${{ env.HOSTNAME }})
+
+              if [ "$CURRENT_IP" == "${{ env.MASTER_IP }}" ]; then
+                  exit 0
+              fi
+
+              echo "Retrying... (Attempt $((COUNT+1))/$MAX_RETRIES - Found: $CURRENT_IP)"
+              sleep 10
+              COUNT=$((COUNT+1))
+          done
+
+          exit 1
+
+      - name: Run the client app
+        run: |
+          // Note: BLOB_STORAGE_URL will be empty when include_ca==false
+          CA_FLAG=$([[ "${{ matrix.include_ca }}" == "true" ]] && echo "--blob-storage-url ${{ env.BLOB_STORAGE_URL }}" || echo "")
 
           ./multinode-provisioning/examples/client/target/release/client \
             --master-url "https://${{ env.HOSTNAME }}" \
             --operator-certificate-path ${{ env.OPERATOR_CERTIFICATE_PATH }} \
             --bundle-hash ${{ env.BUNDLE_HASH }} \
             --os-measurement ${{ env.OS_MEASUREMENT }} \
-            --blob-storage-url https://proof.ivan.mithrilsecurity.io/ \
             --platform-measurements-path ${{ env.PLATFORM_MEASUREMENTS_PATH }}  \
-            --attestation-backend ${{ env.ATTESTATION_BACKEND }}
+            --attestation-backend ${{ env.ATTESTATION_BACKEND }} \
+            $CA_FLAG
 
       - name: Delete resource group
         if: always()
@@ -461,4 +344,4 @@ jobs:
         with:
           azcliversion: latest
           inlineScript: |
-            az group delete -n "EndToEndTest-${{ github.job }}" --force-deletion-types Microsoft.Compute/virtualMachines --yes
+            az group delete -n "EndToEndTest-${{ env.JOB_NAME }}" --force-deletion-types Microsoft.Compute/virtualMachines --yes
