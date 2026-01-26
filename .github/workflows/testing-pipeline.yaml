@@ -58,12 +58,6 @@ jobs:
       VM_TYPE: ${{ matrix.vm_type }}
       ATTESTATION_BACKEND: ${{ matrix.attestation_backend }}
     steps:
-      - name: Set Hostname
-        run: |
-          echo "HOSTNAME=${{ env.JOB_NAME }}.${{ env.ZONE_NAME }}" >> $GITHUB_ENV
-          mkdir -p "${{ github.workspace }}/${{ env.JOB_NAME }}"
-          echo "DIR=${{ github.workspace }}/${{ env.JOB_NAME }}" >> $GITHUB_ENV
-
       - name: Setup Earthly
         uses: earthly/actions-setup@v1
         with:
@@ -71,6 +65,12 @@ jobs:
 
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Set Hostname and create Job dir
+        run: |
+          echo "HOSTNAME=${{ env.JOB_NAME }}.${{ env.ZONE_NAME }}" >> $GITHUB_ENV
+          mkdir -p "${{ github.workspace }}/${{ env.JOB_NAME }}"
+          echo "DIR=${{ github.workspace }}/${{ env.JOB_NAME }}" >> $GITHUB_ENV
 
       - name: Get provisioning bundle
         run: |
@@ -92,7 +92,7 @@ jobs:
           
       - name: Get pre-built binaries
         run: |
-          mkdir ${{ env.DIR }}/binaries
+          mkdir -p ${{ env.DIR }}/binaries
           curl https://storage.googleapis.com/fluorite/${{ env.VERSION }}/binaries/client -o ${{ env.DIR }}/binaries/client
           curl https://storage.googleapis.com/fluorite/${{ env.VERSION }}/binaries/generate-certificates-cli -o ${{ env.DIR }}/binaries/generate-certificates-cli
           curl https://storage.googleapis.com/fluorite/${{ env.VERSION }}/binaries/operator-cli -o ${{ env.DIR }}/binaries/operator-cli
