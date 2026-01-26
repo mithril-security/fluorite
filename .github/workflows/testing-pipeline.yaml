@@ -320,21 +320,21 @@ jobs:
 
       - name: Wait for DNS propagation
         run: |
-          # Check every 10 seconds for 2 minutes
-          MAX_RETRIES=12
+          # Check every 30 seconds for 10 minutes
+          MAX_RETRIES=20
           COUNT=0
 
           echo "Checking if ${{ env.HOSTNAME }} points to ${{ env.MASTER_IP }}..."
 
           while [ $COUNT -lt $MAX_RETRIES ]; do
-              CURRENT_IP=$(dig A ${{ env.HOSTNAME }})
+              CURRENT_IP=$(dig +short A ${{ env.HOSTNAME }})
 
               if [ "$CURRENT_IP" == "${{ env.MASTER_IP }}" ]; then
                   exit 0
               fi
 
               echo "Retrying... (Attempt $((COUNT+1))/$MAX_RETRIES - Found: $CURRENT_IP)"
-              sleep 10
+              sleep 30
               COUNT=$((COUNT+1))
           done
 
