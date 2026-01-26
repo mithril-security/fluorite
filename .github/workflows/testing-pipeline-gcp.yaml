@@ -25,12 +25,12 @@ jobs:
             zone: europe-west10-a
             machine_type: n2-standard-8
             attestation_backend: GcpShieldedVM
-          # - job_id: test-nginx
-          #   package: nginx
-          #   include_ca: true
-          #   vm_location: eastus2
-          #   vm_type: Standard_D4as_v4
-          #   attestation_backend: AzureTrustedLaunchVM
+          - job_id: test-nginx
+            package: nginx
+            include_ca: true
+            zone: europe-west10-a
+            machine_type: n2-standard-8
+            attestation_backend: GcpShieldedVM
           # - job_id: test-ray-tl
           #   package: ray-tl
           #   include_ca: true
