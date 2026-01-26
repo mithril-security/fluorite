@@ -193,6 +193,22 @@ jobs:
             --sku "fluorite-os-with-gpu-${VERSION_FORMATTED}" \
             --version "1.0.0"
 
+      - name: Build operator-cli, fluorite-cli, example client, generate-certificates-cli
+        run: |
+          mkdir binaries
+
+          earthly +operator-cli
+          earthly +fluorite-cli
+          earthly +client
+          earthly +generate-certificates-cli
+
+
+          cp ./operator/operator-cli/target/release/operator-cli \
+            ./fluorite-cli/target/release/fluorite-cli \
+            ./multinode-provisioning/examples/client/target/release/client \
+            ./operator/generate-certificates-cli/target/release/generate-certificates-cli \
+            ./binaries
+          
       - name: Generate SLSA subjects
         id: hash
         run: |
@@ -200,6 +216,7 @@ jobs:
             fluorite-os/cloud-vtpm/*                    \
             fluorite-os/cloud-vtpm-with-gpu/*           \
             gcp-cvm-notarizer/*                         \
+            binaries/*                                  \
             > artifacts.SHA256SUMS
           echo "digests=$(base64 -w0 artifacts.SHA256SUMS)" >> $GITHUB_OUTPUT
 

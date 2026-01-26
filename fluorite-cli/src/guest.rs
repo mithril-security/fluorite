@@ -1,9 +1,9 @@
 use anyhow::Context;
+use std::ffi::OsString;
 use std::{
     path::{Path, PathBuf},
     process::{Command, Stdio},
 };
-use std::ffi::OsString;
 
 use crate::utils::check_host_configuration;
 
@@ -135,7 +135,10 @@ pub fn launch_guest(
     log::info!(
         "This program will invoke: {} {}",
         launch_vm_script_path.display(),
-        cmd.get_args().collect::<Vec<_>>().join(&OsString::from(" ")).display()
+        cmd.get_args()
+            .collect::<Vec<_>>()
+            .join(&OsString::from(" "))
+            .display()
     );
 
     // Inherit stdout to display output of subcommand.

@@ -5,7 +5,6 @@ use regex::Regex;
 use std::{path::Path, process::Command};
 
 pub fn setup_host() -> anyhow::Result<()> {
-
     let host_kernel_dir = Path::new("svsm-linux-host");
 
     if !host_kernel_dir.is_dir() {

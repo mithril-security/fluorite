@@ -10,7 +10,6 @@ mod utils;
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Args {
-    // platform: String,
     #[command(subcommand)]
     cmd: Commands,
 }
@@ -19,11 +18,17 @@ struct Args {
 #[derive(Subcommand, Debug, Clone)]
 enum Commands {
     GetArtifacts {
+        /// The version to get e.g. 0.0.1
         #[clap(long)]
-        local: bool,
+        release_version: String,
 
-        #[clap(long, default_value = "./multiple.intoto.jsonl")]
-        provenance_path: PathBuf,
+        /// Path to the provenance file for verification
+        #[clap(long)]
+        provenance_path: Option<PathBuf>,
+
+        // Skip provencance SLSA verification
+        #[clap(long, default_value_t = false)]
+        insecure_skip_verify: bool,
     },
     SetupHost,
     LaunchGuest {
@@ -48,10 +53,10 @@ enum Commands {
         qemu_lib_dir_path: PathBuf,
 
         /// Path to the OS disk image file
-        /// earthly --strict -P +fluorite-os --nvidiaDriver=true --snpBareMetal=true --outputDir=platform/baremetal-amd-sev/local-svsm/
+        /// earthly --strict -P +fluorite-os --nvidiaDriver=true --snpBareMetal=true --outputDir=fluorite-os/baremetal-amd-sev/
         #[clap(
             long,
-            default_value = "./platform/baremetal-amd-sev/local-svsm/image.raw"
+            default_value = "./fluorite-os/baremetal-amd-sev/disk.raw"
         )]
         disk_path: PathBuf,
 
@@ -113,9 +118,12 @@ fn main() -> anyhow::Result<()> {
 
     match args.cmd {
         Commands::GetArtifacts {
-            local,
+            release_version,
             provenance_path,
-        } => artifact_manager::get_artifacts(local, provenance_path),
+            insecure_skip_verify,
+        } => {
+            artifact_manager::get_artifacts(release_version, provenance_path, insecure_skip_verify)
+        }
         Commands::SetupHost => host::setup_host(),
         Commands::LaunchGuest {
             user_data_path,
