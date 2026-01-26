@@ -596,7 +596,7 @@ def main(
     operator_key_path: str,
     num_servers: int,
     num_agents: int,
-    cvm_name: str = "notarizer-cvm",
+    notarizer_instance_name: str = "notarizer-cvm",
     bucket: Optional[str] = None,
     notarizer_image: Optional[str] = None,
     notarizer_image_path: Optional[Path] = None,
@@ -682,7 +682,7 @@ def main(
         logging.info("Step 2: Creating Confidential VM for notarizer")
         logging.info("=" * 60)
         
-        cvm_ip = create_notarizer_cvm(cvm_name, config, notarizer_image_name, creator_cert_pem)
+        cvm_ip = create_notarizer_cvm(notarizer_instance_name, config, notarizer_image_name, creator_cert_pem)
         
         # Step 3: Wait for notarizer service to be ready
         logging.info("=" * 60)
@@ -743,8 +743,8 @@ def main(
         logging.info("=" * 60)
         
         if not skip_cleanup:
-            delete_vm(cvm_name, config)
-            logging.info(f"Notarizer CVM {cvm_name} deleted")
+            delete_vm(notarizer_instance_name, config)
+            logging.info(f"Notarizer CVM {notarizer_instance_name} deleted")
         else:
             logging.info(f"Skipping cleanup (--skip-cleanup). Notarizer running at https://{cvm_ip}")
         
@@ -779,7 +779,7 @@ def main(
         if not skip_cleanup:
             logging.info("Cleaning up resources due to error...")
             if cvm_ip:
-                delete_vm(cvm_name, config)
+                delete_vm(notarizer_instance_name, config)
             for name, _, _, _ in all_vms:
                 delete_vm(name, config)
         
@@ -948,7 +948,7 @@ if __name__ == "__main__":
         operator_key_path=args.operator_key_path,
         num_servers=args.num_servers,
         num_agents=args.num_agents,
-        cvm_name=args.cvm_name,
+        notarizer_instance_name=args.notarizer_instance_name,
         bucket=args.bucket,
         notarizer_image=args.notarizer_image,
         notarizer_image_path=notarizer_image_path,
