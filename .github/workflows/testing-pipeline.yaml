@@ -255,14 +255,16 @@ jobs:
               --resource-group $RESOURCE_GROUP \
               --user-assigned attestation-transparency-service-identity
 
-            ./scripts/setup-containerapp.sh $RESOURCE_GROUP $CONTAINER_APP $CONTAINER_APP_ENV $ZONE_NAME $A_RECORD_NAME
+            ./scripts/setup-containerapp.sh $RESOURCE_GROUP $CONTAINER_APP $CONTAINER_APP_ENV $ZONE_NAME $A_RECORD_NAME & 
 
             # Setup domain-monitor
             CONTAINER_APP="${{ env.DOMAIN_MONITOR_CONTAINER_APP_NAME }}"
             CONTAINER_APP_ENV="${{ env.DOMAIN_MONITOR_CONTAINER_APP_ENVIRONMENT }}"
             A_RECORD_NAME="domainmonitor.${{ env.JOB_NAME }}"
 
-            ./scripts/setup-containerapp.sh $RESOURCE_GROUP $CONTAINER_APP $CONTAINER_APP_ENV $ZONE_NAME $A_RECORD_NAME
+            ./scripts/setup-containerapp.sh $RESOURCE_GROUP $CONTAINER_APP $CONTAINER_APP_ENV $ZONE_NAME $A_RECORD_NAME & 
+
+            wait
 
       - name: Spawn VMs for test
         working-directory: operator/vm-cli/
