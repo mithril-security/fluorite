@@ -404,6 +404,14 @@ function displaySingleCertificateInfo(data, domain, allEntries) {
     if (attestationLink){
         attestationLink.href = `${data.attestation_transparency_service_url}/by-hash-pub-key/${data.certificate_info.hash_public_key}`;  
     }
+    
+    if (attestationPackageHashLink){
+        attestationPackageHashLink.href = `${data.provisioning_package_url}`;  
+    }
+
+    if (attestationOsHashLink){
+        attestationOsHashLink.href = `${data.os_disk_url}`;  
+    }
 
     // Populate Attestation Details
     populateAttestationDetails(

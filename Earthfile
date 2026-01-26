@@ -253,7 +253,7 @@ zarf-ray:
     COPY ./operator/operator-cli/packages/zarf_ray/ ./operator/operator-cli/packages/zarf_ray
     WITH DOCKER --load fluorite-approver-policy-plugin:latest=+cert-manager-plugin-builder \
                 --load gpu-attestation-checker:latest=+gpu-attestation-checker-builder
-        RUN ./zarf package create operator/operator-cli/packages/zarf_ray/ --skip-sbom
+        RUN ./zarf package create operator/operator-cli/packages/zarf_ray/
     END
     SAVE ARTIFACT ./zarf-package-ray-amd64-1.0.0.tar.zst AS LOCAL ./packages/zarf-package-ray-amd64-1.0.0.tar.zst
 
@@ -263,7 +263,7 @@ zarf-ray-tl:
 
     COPY ./operator/operator-cli/packages/zarf_ray_tl/ ./operator/operator-cli/packages/zarf_ray_tl
     WITH DOCKER --load fluorite-approver-policy-plugin:latest=+cert-manager-plugin-builder
-        RUN ./zarf package create operator/operator-cli/packages/zarf_ray_tl/ --skip-sbom
+        RUN ./zarf package create operator/operator-cli/packages/zarf_ray_tl/
     END
     SAVE ARTIFACT ./zarf-package-ray-amd64-1.0.0.tar.zst AS LOCAL ./packages/zarf-package-ray-tl-amd64-1.0.0.tar.zst
 
@@ -272,7 +272,7 @@ zarf-nginx-self-ca:
     CACHE /root/.zarf-cache/
 
     COPY ./operator/operator-cli/packages/zarf_nginx_self_ca/ ./operator/operator-cli/packages/zarf_nginx_self_ca
-    RUN ./zarf package create operator/operator-cli/packages/zarf_nginx_self_ca/ --skip-sbom
+    RUN ./zarf package create operator/operator-cli/packages/zarf_nginx_self_ca/
 
     SAVE ARTIFACT ./zarf-package-nginx-amd64-1.0.0.tar.zst AS LOCAL ./packages/zarf-package-nginx-self-ca-amd64-1.0.0.tar.zst
 

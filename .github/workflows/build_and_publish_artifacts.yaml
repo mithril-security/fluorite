@@ -30,15 +30,15 @@ jobs:
           workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
           service_account: ${{ secrets.GCP_SA_EMAIL }}
 
-      - name: 'Set up Cloud SDK'
-        uses: 'google-github-actions/setup-gcloud@v3'
+      - name: "Set up Cloud SDK"
+        uses: "google-github-actions/setup-gcloud@v3"
         with:
-          version: '>= 363.0.0'
+          version: ">= 363.0.0"
 
       - name: Build FluoriteOS image for cloud vTPM
         run: |
           earthly --strict -P +fluorite-os --outputDir=fluorite-os/cloud-vtpm/
-          
+
           # Compress the image for image creation on Google Cloud
           tar -Sczf fluorite-os/cloud-vtpm/disk.raw.tar.gz -C fluorite-os/cloud-vtpm/ disk.raw
 
@@ -172,7 +172,7 @@ jobs:
         run: |
 
           VERSION_FORMATTED="${VERSION//./-}"
-          
+
           uv sync --locked --all-extras
 
           uv run main.py \
@@ -208,7 +208,7 @@ jobs:
             ./multinode-provisioning/examples/client/target/release/client \
             ./operator/generate-certificates-cli/target/release/generate-certificates-cli \
             ./binaries
-          
+
       - name: Generate SLSA subjects
         id: hash
         run: |
@@ -228,7 +228,7 @@ jobs:
           #   > artifacts.SHA256SUMS
           # echo "digests=$(base64 -w0 artifacts.SHA256SUMS)" >> $GITHUB_OUTPUT
 
-  provenance:
+  provenance-os:
     needs: build-and-publish
     permissions:
       actions: read # To read the workflow path.
@@ -238,3 +238,98 @@ jobs:
     with:
       base64-subjects: "${{ needs.build-and-publish.outputs.digests }}"
       upload-assets: true # Upload the provenance to Github Releases
+      provenance-name: fluorite-os.intoto.jsonl
+
+  release-provisioning-bundles:
+    outputs:
+      digests: ${{ steps.hash.outputs.digests }}
+    runs-on: 16-core
+    environment: release
+    steps:
+      - name: Setup Earthly
+        uses: earthly/actions-setup@v1
+        with:
+          version: v0.8.16
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_SA_EMAIL }}
+
+      - name: "Set up Cloud SDK"
+        uses: "google-github-actions/setup-gcloud@v3"
+        with:
+          version: ">= 363.0.0"
+
+      - name: Build Zarf Packages
+        run: |
+          earthly --strict -P +zarf-packages
+
+      - name: Set version for uploads
+        id: version
+        run: |
+          VERSION="${{ github.event.release.tag_name }}"
+          VERSION_NO_V="${VERSION#v}"
+          echo "tag=${VERSION}" >> $GITHUB_OUTPUT
+          echo "semver=${VERSION_NO_V}" >> $GITHUB_OUTPUT
+
+      - name: Upload Zarf Packages
+        env:
+          VERSION: ${{ steps.version.outputs.semver }}
+        run: |
+          gsutil -m cp -r ./packages gs://fluorite/${VERSION}/
+
+      - name: Generate SLSA subjects
+        id: hash
+        run: |
+          sha256sum  packages/* > packages.SHA256SUMS
+          echo "digests=$(base64 -w0 packages.SHA256SUMS)" >> $GITHUB_OUTPUT
+
+  provenance-packages:
+    needs: release-provisioning-bundles
+    permissions:
+      actions: read # To read the workflow path.
+      id-token: write # To sign the provenance.
+      contents: write # To add assets to a release.
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0
+    with:
+      base64-subjects: "${{ needs.release-provisioning-bundles.outputs.digests }}"
+      upload-assets: true # Upload the provenance to Github Releases
+      provenance-name: packages.intoto.jsonl
+
+  publish-services-images:
+    # No need for SLSA, so use the self-hosted runner
+    runs-on: fluorite-runner
+    timeout-minutes: 60
+    environment: release
+    # Wait for the newest gcp_notarizer_measurements have been uploaded
+    needs: build-and-publish
+    steps:
+      - name: Setup Earthly
+        uses: earthly/actions-setup@v1
+        with:
+          version: v0.8.16
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Docker Login
+        uses: azure/docker-login@v1
+        with:
+          login-server: mycr32671.azurecr.io
+          username: mycr32671
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: Build attestation-transparency-service and domain-monitor
+        run: |
+          VERSION="${{ github.event.release.tag_name }}"
+          VERSION_NO_V="${VERSION#v}"
+          curl "https://storage.googleapis.com/fluorite/$VERSION_NO_V/gcp-cvm-notarizer/gcp_notarizer_measurements.json" > libraries/attestation/gcp-shielded-vm-attestation/gcp_notarizer_measurements.json
+
+          earthly --push +attestation-transparency-service-image --tag=$VERSION_NO_V
+          earthly --push +domain-monitor-image --tag=$VERSION_NO_V

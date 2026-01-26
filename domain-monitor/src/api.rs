@@ -34,6 +34,8 @@ pub struct MyState {
     pub bundle_hash: String,
     pub attestation_backend: AttestationBackend,
     pub storage_url: Url,
+    pub os_disk_url: Url,
+    pub provisioning_package_url: Url,
 }
 
 // The struct to represent a single object in the JSON array.
@@ -85,6 +87,8 @@ pub(crate) struct Entry {
     pub attestation_backend: AttestationBackend,
     pub cluster_info: Option<ClusterInfo>,
     pub certificate_info: Option<CertificateInfo>,
+    pub os_disk_url: String,
+    pub provisioning_package_url: String,
     pub attestation_transparency_service_url: String,
     pub attestation_report: Option<Value>,
     pub reason: String,
@@ -419,6 +423,9 @@ impl MyState {
                 attestation_report: attestation_report,
                 reason: error_message,
                 attestation_transparency_service_url: self.storage_url.to_string(),
+                provisioning_package_url: self.provisioning_package_url.to_string(),
+                os_disk_url: self.os_disk_url.to_string(),
+                
             }
         }))
         .await;

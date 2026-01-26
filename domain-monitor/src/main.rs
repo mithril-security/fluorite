@@ -45,6 +45,12 @@ struct Args {
 
     /// Storage URL
     storage_url: Url,
+
+    /// OS Disk URL
+    os_disk_url: Url,
+
+    /// Provisioning package URL
+    provisioning_package_url: Url,
 }
 
 #[tokio::main]
@@ -92,6 +98,8 @@ async fn main() -> anyhow::Result<()> {
         attestation_backend: args.attestation_backend,
         platform_measurements: platform_measurements,
         storage_url: args.storage_url,
+        os_disk_url: args.os_disk_url,
+        provisioning_package_url: args.provisioning_package_url,
     };
 
     let compression_layer: CompressionLayer = CompressionLayer::new().deflate(true).gzip(true);
@@ -110,6 +118,5 @@ async fn main() -> anyhow::Result<()> {
 
     server.serve(app.into_make_service()).await.unwrap();
 
-    println!("Hello, world!");
     Ok(())
 }
