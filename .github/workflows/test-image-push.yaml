@@ -7,6 +7,9 @@ permissions:
   id-token: write
   contents: read
 
+env:
+  VERSION: 0.0.0-testing-20260125125844
+
 jobs:
   test:
     runs-on: fluorite-runner
@@ -23,6 +26,9 @@ jobs:
 
       - name: Build attestation-transparency-service and domain-monitor
         run: |
+          curl "https://storage.googleapis.com/fluorite/${{ env.VERSION }}/gcp-cvm-notarizer/gcp_notarizer_measurements.json" > libraries/attestation/gcp-shielded-vm-attestation/gcp_notarizer_measurements.json
+           
+
           earthly +attestation-transparency-service
           earthly +domain-monitor
       
