@@ -131,11 +131,6 @@ jobs:
           gcloud services enable compute.googleapis.com --project="$PROJECT_ID"
           gcloud services enable cloudresourcemanager.googleapis.com --project="$PROJECT_ID"
 
-          # Create default network and subnet
-          gcloud compute networks create default \
-            --project="$PROJECT_ID" \
-            --subnet-mode=auto
-
           echo "GCP_SUBNET=default" >> $GITHUB_ENV
 
       - name: Install uv
