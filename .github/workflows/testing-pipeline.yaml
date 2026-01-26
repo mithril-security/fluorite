@@ -326,7 +326,7 @@ jobs:
 
       - name: Run the client app
         run: |
-          // Note: BLOB_STORAGE_URL will be empty when include_ca==false
+          # Note: BLOB_STORAGE_URL will be empty when include_ca==false
           CA_FLAG=$([[ "${{ matrix.include_ca }}" == "true" ]] && echo "--blob-storage-url ${{ env.BLOB_STORAGE_URL }}" || echo "")
 
           ./multinode-provisioning/examples/client/target/release/client \
