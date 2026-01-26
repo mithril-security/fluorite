@@ -1,4 +1,4 @@
-name: Testing Pipeline
+name: Testing Pipeline for GCP
 
 on:
   workflow_dispatch:
@@ -26,24 +26,30 @@ jobs:
             zone: europe-west10-a
             machine_type: n2-standard-8
             attestation_backend: GcpShieldedVM
-          - job_id: test-nginx
-            package: nginx
-            include_ca: true
-            zone: europe-west10-a
-            machine_type: n2-standard-8
-            attestation_backend: GcpShieldedVM
+            gpu: false
+          # - job_id: test-nginx
+          #   package: nginx
+          #   include_ca: true
+          #   zone: europe-west10-a
+          #   machine_type: n2-standard-8
+          #   attestation_backend: GcpShieldedVM
+          #   gpu: false
+
           # - job_id: test-ray-tl
           #   package: ray-tl
           #   include_ca: true
-          #   vm_location: francecentral
-          #   vm_type: Standard_NC24ads_A100_v4
-          #   attestation_backend: AzureTrustedLaunchVM
+          #   zone: europe-west4
+          #   machine_type: a2-ultragpu-1g
+          #   attestation_backend: GcpShieldedVM
+          #   gpu: true
           # - job_id: test-ray
           #   package: ray
           #   include_ca: true
-          #   vm_location: eastus2
-          #   vm_type: Standard_NCC40ads_H100_v5
-          #   attestation_backend: AzureConfidentialVM
+          #   zone: europe-west4
+          #   machine_type: a2-ultragpu-1g
+          #   attestation_backend: GcpShieldedVM
+          #   gpu: true
+
     env:
       PACKAGE: ${{ matrix.package }}
       JOB_NAME: ${{ matrix.job_id }}
@@ -51,9 +57,9 @@ jobs:
       GCP_MACHINE_TYPE: ${{ matrix.machine_type }}
       ATTESTATION_BACKEND: ${{ matrix.attestation_backend }}
     steps:
-      - name: Set Hostname
+      - name: Set Hostname and create Job dir
         run: |
-          echo "HOSTNAME=${{ env.JOB_NAME }}.${{ env.ZONE_NAME }}" >> $GITHUB_ENV
+          echo "HOSTNAME=${{ github.run_id }}-${{ github.run_attempt }}-${{ env.JOB_NAME }}.${{ env.ZONE_NAME }}" >> $GITHUB_ENV
           VERSION_FORMATTED="${VERSION//./-}"
           
           GCP_FLUORITE_OS_IMAGE="fluorite-os-${VERSION_FORMATTED}"
@@ -61,6 +67,10 @@ jobs:
 
           GCP_FLUORITE_OS_WITH_GPU_IMAGE="fluorite-os-with-gpu-${VERSION_FORMATTED}"
           echo "GCP_FLUORITE_OS_WITH_GPU_IMAGE=$GCP_FLUORITE_OS_WITH_GPU_IMAGE" >> $GITHUB_ENV
+
+          if [ "${{ matrix.gpu }}" = "true" ]; then
+            GCP_FLUORITE_OS_IMAGE=$GCP_FLUORITE_OS_WITH_GPU_IMAGE
+          fi
 
           GCP_NOTARIZER_IMAGE="gcp-notarizer-os-${VERSION_FORMATTED}"
           echo "GCP_NOTARIZER_IMAGE=$GCP_NOTARIZER_IMAGE" >> $GITHUB_ENV
@@ -76,19 +86,36 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build provisioning bundle
-        run: earthly --strict -P  +zarf-${{ env.PACKAGE }}
-
-      - name: Run setup build step
+      - name: Get provisioning bundle
         run: |
-          # Get the this version's gcp_notarizer_measurements.json 
-          curl "https://storage.googleapis.com/fluorite/${{ env.VERSION }}/gcp-cvm-notarizer/gcp_notarizer_measurements.json" > libraries/attestation/gcp-shielded-vm-attestation/gcp_notarizer_measurements.json
-                    
-          earthly --strict -P  +setup
+          mkdir -p ${{ env.DIR }}/packages
+          
+          PACKAGE_NAME="zarf-package-${{ env.PACKAGE }}-amd64-1.0.0.tar.zst"
+          PACKAGE_URL="https://storage.googleapis.com/fluorite/${{ env.VERSION }}/packages/$PACKAGE_NAME"
+          PACKAGE_PATH="${{ env.DIR }}/packages/$PACKAGE_NAME"
+          
+          curl $PACKAGE_URL -o $PACKAGE_PATH
+
+          echo "PACKAGE_PATH=$PACKAGE_PATH" >> $GITHUB_ENV
+
+          # Compute the hash of the provisioning package
+          BUNDLE_HASH=$(sha256sum $PACKAGE_PATH | awk '{print $1}')
+          echo "BUNDLE_HASH=$BUNDLE_HASH" >> $GITHUB_ENV
+
+          echo "PACKAGE_URL=$PACKAGE_URL" >> $GITHUB_ENV
+          
+      - name: Get pre-built binaries
+        run: |
+          mkdir -p ${{ env.DIR }}/binaries
+          curl https://storage.googleapis.com/fluorite/${{ env.VERSION }}/binaries/client -o ${{ env.DIR }}/binaries/client
+          curl https://storage.googleapis.com/fluorite/${{ env.VERSION }}/binaries/generate-certificates-cli -o ${{ env.DIR }}/binaries/generate-certificates-cli
+          curl https://storage.googleapis.com/fluorite/${{ env.VERSION }}/binaries/operator-cli -o ${{ env.DIR }}/binaries/operator-cli
+          
+          chmod +x ${{ env.DIR }}/binaries/*
 
       - name: Generate Operator Certificates
         run: |
-          ./operator/generate-certificates-cli/target/release/generate-certificates-cli --force --cert-directory-path ${{ env.DIR }}/certificates
+          ${{ env.DIR }}/binaries/generate-certificates-cli --force --cert-directory-path ${{ env.DIR }}/certificates
 
       - name: Azure login
         uses: azure/login@v2
@@ -140,19 +167,19 @@ jobs:
       - name: Inject variables in the job environment
         run: |
           # Get the latest FluoriteOS image published on Azure Image Gallery and it's PCR4 Golden Value
-          MEASUREMENT_URL="https://storage.googleapis.com/fluorite/${{ env.VERSION }}/fluorite-os/cloud-vtpm/os-measurement.json"
+          if [ "${{ matrix.gpu }}" = "true" ]; then
+            MEASUREMENT_URL="https://storage.googleapis.com/fluorite/${{ env.VERSION }}/fluorite-os/cloud-vtpm-gpu/os-measurement.json"
+            OS_DISK_URL="https://storage.googleapis.com/fluorite/${{ env.VERSION }}/fluorite-os/cloud-vtpm-gpu/disk.raw"
+          else
+            MEASUREMENT_URL="https://storage.googleapis.com/fluorite/${{ env.VERSION }}/fluorite-os/cloud-vtpm/os-measurement.json"
+            OS_DISK_URL="https://storage.googleapis.com/fluorite/${{ env.VERSION }}/fluorite-os/cloud-vtpm/disk.raw"
+          fi
           OS_MEASUREMENT=$(curl $MEASUREMENT_URL | jq -r .fluoriteos_pcr4)
           echo "OS_MEASUREMENT=$OS_MEASUREMENT" >> $GITHUB_ENV
+          echo "OS_DISK_URL=$OS_DISK_URL" >> $GITHUB_ENV
 
           PLATFORM_MEASUREMENTS_PATH="./measurements/measurements_gcp_shielded_vm.json"
           echo "PLATFORM_MEASUREMENTS_PATH=$PLATFORM_MEASUREMENTS_PATH" >> $GITHUB_ENV
-
-          PACKAGE_PATH="./packages/zarf-package-${{ env.PACKAGE }}-amd64-1.0.0.tar.zst"
-          echo "PACKAGE_PATH=$PACKAGE_PATH" >> $GITHUB_ENV
-
-          # Compute the hash of the provisioning package
-          BUNDLE_HASH=$(sha256sum $PACKAGE_PATH | awk '{print $1}')
-          echo "BUNDLE_HASH=$BUNDLE_HASH" >> $GITHUB_ENV
 
           # Generate the password for the Attestation Transparency Service
           ATS_PASSWORD=$(openssl rand -hex 32)
@@ -217,12 +244,7 @@ jobs:
         if: matrix.include_ca == true
         uses: azure/container-apps-deploy-action@v2
         with:
-          appSourcePath: ${{ github.workspace }}
-          dockerfilePath: attestation-transparency-service/Dockerfile
-          imageToBuild: mycr32671.azurecr.io/attestation-transparency-service-image:latest
-          acrName: mycr32671
-          acrUsername: mycr32671
-          acrPassword: ${{ secrets.ACR_PASSWORD }}
+          imageToDeploy: mycr32671.azurecr.io/attestation-transparency-service:latest
           containerAppName: ${{ env.ATS_CONTAINER_APP_NAME }}
           containerAppEnvironment: ${{ env.ATS_CONTAINER_APP_ENVIRONMENT }}
           resourceGroup: ${{ env.RESOURCE_GROUP }}
@@ -243,17 +265,14 @@ jobs:
             AZURE_SUBSCRIPTION_ID="${{ secrets.AZURE_SUBSCRIPTION_ID }}"
             IDENTITY_RESOURCE_ID="/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ env.RESOURCE_GROUP }}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/attestation-transparency-service-identity"
             PLATFORM_MEASUREMENTS_PATH="${{ env.PLATFORM_MEASUREMENTS_PATH }}"
+            OS_DISK_URL="${{ env.OS_DISK_URL }}"
+            PROVISIONING_PACKAGE_URL="${{ env.PACKAGE_URL }}"
 
       - name: Build and deploy domain-monitor Container App
         if: matrix.include_ca == true
         uses: azure/container-apps-deploy-action@v2
         with:
-          appSourcePath: ${{ github.workspace }}
-          dockerfilePath: domain-monitor/Dockerfile
-          imageToBuild: mycr32671.azurecr.io/domain-monitor-image:latest
-          acrName: mycr32671
-          acrUsername: mycr32671
-          acrPassword: ${{ secrets.ACR_PASSWORD }}
+          imageToDeploy: mycr32671.azurecr.io/domain-monitor:latest
           containerAppName: ${{ env.DOMAIN_MONITOR_CONTAINER_APP_NAME }}
           containerAppEnvironment: ${{ env.DOMAIN_MONITOR_CONTAINER_APP_ENVIRONMENT }}
           resourceGroup: ${{ env.RESOURCE_GROUP }}
@@ -342,12 +361,9 @@ jobs:
 
             echo "MASTER_IP=$MASTER_IP" >> $GITHUB_ENV
 
-      - name: Build CLI tools
-        run: earthly --strict -P  +operator-cli
-
       - name: Provision VMs
         run: |
-          ./operator/operator-cli/target/release/operator-cli \
+          ${{ env.DIR }}/binaries/operator-cli \
             --zarf-package-path ${{ env.PACKAGE_PATH }} \
             --os-measurement ${{ env.OS_MEASUREMENT }} \
             --platform-measurements-path ${{ env.PLATFORM_MEASUREMENTS_PATH }} \
@@ -356,9 +372,6 @@ jobs:
             --cluster-file-path ${{ env.DIR }}/cluster.json \
             --deployment-config-path ${{ env.DEPLOYMENT_CONFIG_PATH }} \
             --attestation-backend ${{ env.ATTESTATION_BACKEND }}
-
-      - name: Build Client app
-        run: earthly --strict -P  +client
 
       - name: Wait for DNS propagation
         run: |
@@ -387,7 +400,7 @@ jobs:
           # Note: BLOB_STORAGE_URL will be empty when include_ca==false
           CA_FLAG=$([[ "${{ matrix.include_ca }}" == "true" ]] && echo "--blob-storage-url ${{ env.BLOB_STORAGE_URL }}" || echo "")
 
-          ./multinode-provisioning/examples/client/target/release/client \
+          ${{ env.DIR }}/binaries/client \
             --master-url "https://${{ env.HOSTNAME }}" \
             --operator-certificate-path ${{ env.OPERATOR_CERTIFICATE_PATH }} \
             --bundle-hash ${{ env.BUNDLE_HASH }} \
