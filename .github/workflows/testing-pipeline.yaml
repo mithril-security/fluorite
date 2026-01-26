@@ -451,6 +451,7 @@ jobs:
             --operator-certificate-path ${{ env.OPERATOR_CERTIFICATE_PATH }} \
             --bundle-hash ${{ env.BUNDLE_HASH }} \
             --os-measurement ${{ env.OS_MEASUREMENT }} \
+            --blob-storage-url https://proof.ivan.mithrilsecurity.io/ \
             --platform-measurements-path ${{ env.PLATFORM_MEASUREMENTS_PATH }}  \
             --attestation-backend ${{ env.ATTESTATION_BACKEND }}
 
