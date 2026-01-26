@@ -121,8 +121,8 @@ jobs:
           echo "GCP_PROJECT=$PROJECT_ID" >> $GITHUB_ENV
 
           # Create the project
-          gcloud projects create "$PROJECT_ID"
-          
+          gcloud projects create "$PROJECT_ID" --organization=${{ secrets.GCP_ORG_ID }}
+
           # Link billing account (required to create resources)
           gcloud billing projects link "$PROJECT_ID" \
             --billing-account=${{ secrets.GCP_BILLING_ACCOUNT }}
