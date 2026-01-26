@@ -20,13 +20,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # - job_id: test-nginx-self-ca
-          #   package: nginx-self-ca
-          #   include_ca: false
-          #   zone: europe-west10-a
-          #   machine_type: n2-standard-8
-          #   attestation_backend: GcpShieldedVM
-          #   gpu: false
+          - job_id: test-nginx-self-ca
+            package: nginx-self-ca
+            include_ca: false
+            zone: europe-west10-a
+            machine_type: n2-standard-8
+            attestation_backend: GcpShieldedVM
+            gpu: false
 
           - job_id: test-nginx
             package: nginx
@@ -36,20 +36,21 @@ jobs:
             attestation_backend: GcpShieldedVM
             gpu: false
 
-          # - job_id: test-ray-tl
-          #   package: ray-tl
-          #   include_ca: true
-          #   zone: europe-west4
-          #   machine_type: a2-ultragpu-1g
-          #   attestation_backend: GcpShieldedVM
-          #   gpu: true
-          # - job_id: test-ray
-          #   package: ray
-          #   include_ca: true
-          #   zone: europe-west4
-          #   machine_type: a2-ultragpu-1g
-          #   attestation_backend: GcpShieldedVM
-          #   gpu: true
+          - job_id: test-ray-tl
+            package: ray-tl
+            include_ca: true
+            zone: europe-west4-a
+            machine_type: a2-ultragpu-1g
+            attestation_backend: GcpShieldedVM
+            gpu: true
+
+          - job_id: test-ray
+            package: ray
+            include_ca: true
+            zone: europe-west4-a
+            machine_type: a2-ultragpu-1g
+            attestation_backend: GcpShieldedVM
+            gpu: true
 
     env:
       PACKAGE: ${{ matrix.package }}
@@ -197,6 +198,10 @@ jobs:
           echo "DEPLOYMENT_CONFIG_PATH=$DEPLOYMENT_CONFIG_PATH" >> $GITHUB_ENV
 
           if [ "${{ matrix.include_ca }}" = "true" ]; then
+            # Generate the password for the Attestation Transparency Service
+            ATS_PASSWORD=$(openssl rand -hex 32)
+            echo "::add-mask::$ATS_PASSWORD"        
+            echo "ATS_PASSWORD=$ATS_PASSWORD" >> $GITHUB_ENV
 
             # Encode the operator certificate for the next jobs
             OPERATOR_CERTIFICATE_B64=$(base64 -w0 $OPERATOR_CERTIFICATE_PATH)
@@ -219,7 +224,6 @@ jobs:
 
             BLOB_STORAGE_URL="https://proof.ivan.mithrilsecurity.io/"
             echo "BLOB_STORAGE_URL=$BLOB_STORAGE_URL" >> $GITHUB_ENV
-
           fi
 
           RESOURCE_GROUP="ivan-fli-multinode"
@@ -266,8 +270,6 @@ jobs:
             AZURE_SUBSCRIPTION_ID="${{ secrets.AZURE_SUBSCRIPTION_ID }}"
             IDENTITY_RESOURCE_ID="/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ env.RESOURCE_GROUP }}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/attestation-transparency-service-identity"
             PLATFORM_MEASUREMENTS_PATH="${{ env.PLATFORM_MEASUREMENTS_PATH }}"
-            OS_DISK_URL="${{ env.OS_DISK_URL }}"
-            PROVISIONING_PACKAGE_URL="${{ env.PACKAGE_URL }}"
 
       - name: Build and deploy domain-monitor Container App
         if: matrix.include_ca == true
@@ -289,6 +291,8 @@ jobs:
             OS_MEASUREMENT="${{ env.OS_MEASUREMENT }}" 
             STORAGE_URL="${{ env.BLOB_STORAGE_URL }}"
             PLATFORM_MEASUREMENTS_PATH="${{ env.PLATFORM_MEASUREMENTS_PATH }}"
+            OS_DISK_URL="${{ env.OS_DISK_URL }}"
+            PROVISIONING_PACKAGE_URL="${{ env.PACKAGE_URL }}"
 
       - name: Setup attestation-transparency and domain-monitor services
         if: matrix.include_ca == true
@@ -314,14 +318,16 @@ jobs:
               --resource-group $RESOURCE_GROUP \
               --user-assigned attestation-transparency-service-identity
 
-            ./scripts/setup-containerapp.sh $RESOURCE_GROUP $CONTAINER_APP $CONTAINER_APP_ENV $ZONE_NAME $A_RECORD_NAME
+            ./scripts/setup-containerapp.sh $RESOURCE_GROUP $CONTAINER_APP $CONTAINER_APP_ENV $ZONE_NAME $A_RECORD_NAME &
 
             # Setup domain-monitor
             CONTAINER_APP="${{ env.DOMAIN_MONITOR_CONTAINER_APP_NAME }}"
             CONTAINER_APP_ENV="${{ env.DOMAIN_MONITOR_CONTAINER_APP_ENVIRONMENT }}"
             A_RECORD_NAME="domainmonitor.${{ github.run_id }}-${{ github.run_attempt }}-${{ env.JOB_NAME }}"
 
-            ./scripts/setup-containerapp.sh $RESOURCE_GROUP $CONTAINER_APP $CONTAINER_APP_ENV $ZONE_NAME $A_RECORD_NAME
+            ./scripts/setup-containerapp.sh $RESOURCE_GROUP $CONTAINER_APP $CONTAINER_APP_ENV $ZONE_NAME $A_RECORD_NAME &
+
+            wait
 
       - name: Spawn VMs for test
         working-directory: operator/gcp-vm-cli/
