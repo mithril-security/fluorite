@@ -62,6 +62,10 @@ logging.getLogger("azure").setLevel(logging.WARNING)
 from pydantic import BaseModel
 from typing import List
 
+class AttestationBackend(str):
+    TRUSTED_LAUNCH = "AzureTrustedLaunchVM"
+    CONFIDENTIAL_VM = "AzureConfidentialVM"
+
 
 class ClusterNode(BaseModel):
     name: str
@@ -436,7 +440,6 @@ def main(
     with open(output_path, "w") as outfile:
         outfile.write(vms.model_dump_json())
 
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Command line tool to create virtual machines on Azure Cloud."
@@ -451,8 +454,8 @@ if __name__ == "__main__":
 
     parser.add_argument(
         "--vm-security-type",
-        help="Type of security to use: ConfidentialVM or TrustedLaunch.",
-        type=SecurityTypes,
+        help="Type of security to use: AzureTrustedLaunchVM or AzureConfidentialVM.",
+        type=AttestationBackend,
         required=True,
     )
 
@@ -517,11 +520,13 @@ if __name__ == "__main__":
     if args.num_control_plane_nodes < 1:
         parser.error("--num-control-plane-nodes must be at least 1.")
 
+    vm_security_type = SecurityTypes.TRUSTED_LAUNCH if args.vm_security_type == AttestationBackend.TRUSTED_LAUNCH else SecurityTypes.CONFIDENTIAL_VM
+
     main(
         resource_group_name=args.resource_group_name,
         location=args.location,
         vm_type=args.vm_type,
-        vm_security_type=args.vm_security_type,
+        vm_security_type=vm_security_type,
         num_control_plane=args.num_control_plane_nodes,
         num_agents=args.num_agent_nodes,
         operator_pem_cert_path=args.operator_pem_cert_path,
