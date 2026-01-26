@@ -58,11 +58,11 @@ jobs:
           echo "HOSTNAME=${{ env.JOB_NAME }}.${{ env.DNS_NAME }}" >> $GITHUB_ENV
           VERSION_FORMATTED="${VERSION//./-}"
           
-          GCP_IMAGE="fluorite-os-${VERSION_FORMATTED}"
-          echo "GCP_FLUORITE_OS_IMAGE=$GCP_IMAGE" >> $GITHUB_ENV
+          GCP_FLUORITE_OS_IMAGE="fluorite-os-${VERSION_FORMATTED}"
+          echo "GCP_FLUORITE_OS_IMAGE=$GCP_FLUORITE_OS_IMAGE" >> $GITHUB_ENV
 
-          GCP_IMAGE_GPU="fluorite-os-with-gpu-${VERSION_FORMATTED}"
-          echo "GCP_FLUORITE_OS_WITH_GPU_IMAGE=$GCP_IMAGE_GPU" >> $GITHUB_ENV
+          GCP_FLUORITE_OS_WITH_GPU_IMAGE="fluorite-os-with-gpu-${VERSION_FORMATTED}"
+          echo "GCP_FLUORITE_OS_WITH_GPU_IMAGE=$GCP_FLUORITE_OS_WITH_GPU_IMAGE" >> $GITHUB_ENV
 
           GCP_NOTARIZER_IMAGE="gcp-notarizer-os-${VERSION_FORMATTED}"
           echo "GCP_NOTARIZER_IMAGE=$GCP_NOTARIZER_IMAGE" >> $GITHUB_ENV
@@ -314,7 +314,7 @@ jobs:
             --zone ${{ env.GCP_ZONE }} \
             --subnet ${{ env.GCP_SUBNET }} \
             --machine-type ${{ env.GCP_MACHINE_TYPE }} \
-            --fluorite-os-image ${{ env.GCP_IMAGE }} \
+            --fluorite-os-image ${{ env.GCP_FLUORITE_OS_IMAGE }} \
             --notarizer-image ${{ env.GCP_NOTARIZER_IMAGE }} \
             --operator-cert-path ${{ env.OPERATOR_CERTIFICATE_PATH }} \
             --operator-key-path ${{ env.OPERATOR_PRIVATE_KEY_PATH }} \
