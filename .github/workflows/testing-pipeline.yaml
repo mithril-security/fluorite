@@ -185,12 +185,7 @@ jobs:
         if: matrix.include_ca == true
         uses: azure/container-apps-deploy-action@v2
         with:
-          appSourcePath: ${{ github.workspace }}
-          dockerfilePath: attestation-transparency-service/Dockerfile
-          imageToBuild: mycr32671.azurecr.io/attestation-transparency-service-image:latest
-          acrName: mycr32671
-          acrUsername: mycr32671
-          acrPassword: ${{ secrets.ACR_PASSWORD }}
+          imageToDeploy: mycr32671.azurecr.io/attestation-transparency-service:latest
           containerAppName: ${{ env.ATS_CONTAINER_APP_NAME }}
           containerAppEnvironment: ${{ env.ATS_CONTAINER_APP_ENVIRONMENT }}
           resourceGroup: ${{ env.RESOURCE_GROUP }}
@@ -216,12 +211,7 @@ jobs:
         if: matrix.include_ca == true
         uses: azure/container-apps-deploy-action@v2
         with:
-          appSourcePath: ${{ github.workspace }}
-          dockerfilePath: domain-monitor/Dockerfile
-          imageToBuild: mycr32671.azurecr.io/domain-monitor-image:latest
-          acrName: mycr32671
-          acrUsername: mycr32671
-          acrPassword: ${{ secrets.ACR_PASSWORD }}
+          imageToDeploy: mycr32671.azurecr.io/domain-monitor:latest
           containerAppName: ${{ env.DOMAIN_MONITOR_CONTAINER_APP_NAME }}
           containerAppEnvironment: ${{ env.DOMAIN_MONITOR_CONTAINER_APP_ENVIRONMENT }}
           resourceGroup: ${{ env.RESOURCE_GROUP }}
