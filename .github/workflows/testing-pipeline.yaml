@@ -353,7 +353,7 @@ jobs:
           # Note: BLOB_STORAGE_URL will be empty when include_ca==false
           CA_FLAG=$([[ "${{ matrix.include_ca }}" == "true" ]] && echo "--blob-storage-url ${{ env.BLOB_STORAGE_URL }}" || echo "")
 
-          {{ env.DIR }}/binaries/client \
+          ${{ env.DIR }}/binaries/client \
             --master-url "https://${{ env.HOSTNAME }}" \
             --operator-certificate-path ${{ env.OPERATOR_CERTIFICATE_PATH }} \
             --bundle-hash ${{ env.BUNDLE_HASH }} \
