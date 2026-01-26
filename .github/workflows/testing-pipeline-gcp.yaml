@@ -321,7 +321,7 @@ jobs:
             --operator-cert-path ${{ env.OPERATOR_CERTIFICATE_PATH }} \
             --operator-key-path ${{ env.OPERATOR_PRIVATE_KEY_PATH }} \
             --num-servers 1 \
-            --num-agents 0 \
+            --num-agents 1 \
             --output-path ${{ env.DIR }}/cluster.json
 
       - name: Create A record for master VM
