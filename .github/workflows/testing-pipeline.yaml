@@ -126,8 +126,8 @@ jobs:
             OS_DISK_URL="https://storage.googleapis.com/fluorite/${{ env.VERSION }}/fluorite-os/cloud-vtpm/disk.raw"
           else
             echo "AZURE_IMAGE=${{ env.AZURE_GALLERY_ID }}/fluorite-os-with-gpu-${VERSION_FORMATTED}/versions/1.0.0" >> $GITHUB_ENV
-            MEASUREMENT_URL="https://storage.googleapis.com/fluorite/${{ env.VERSION }}/fluorite-os/cloud-vtpm-gpu/os-measurement.json"
-            OS_DISK_URL="https://storage.googleapis.com/fluorite/${{ env.VERSION }}/fluorite-os/cloud-vtpm-gpu/disk.raw"
+            MEASUREMENT_URL="https://storage.googleapis.com/fluorite/${{ env.VERSION }}/fluorite-os/cloud-vtpm-with-gpu/os-measurement.json"
+            OS_DISK_URL="https://storage.googleapis.com/fluorite/${{ env.VERSION }}/fluorite-os/cloud-vtpm-with-gpu/disk.raw"
           fi
           # Get the latest FluoriteOS image published on Azure Image Gallery and it's PCR4 Golden Value
           OS_MEASUREMENT=$(curl $MEASUREMENT_URL | jq -r .fluoriteos_pcr4)

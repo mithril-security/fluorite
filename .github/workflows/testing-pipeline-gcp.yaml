@@ -169,12 +169,12 @@ jobs:
       - name: Inject variables in the job environment
         run: |
           # Get the latest FluoriteOS image published on Azure Image Gallery and it's PCR4 Golden Value
-          if [ "${{ matrix.gpu }}" = "true" ]; then
-            MEASUREMENT_URL="https://storage.googleapis.com/fluorite/${{ env.VERSION }}/fluorite-os/cloud-vtpm-gpu/os-measurement.json"
-            OS_DISK_URL="https://storage.googleapis.com/fluorite/${{ env.VERSION }}/fluorite-os/cloud-vtpm-gpu/disk.raw"
-          else
+          if [ "${{ matrix.gpu }}" = "false" ]; then
             MEASUREMENT_URL="https://storage.googleapis.com/fluorite/${{ env.VERSION }}/fluorite-os/cloud-vtpm/os-measurement.json"
             OS_DISK_URL="https://storage.googleapis.com/fluorite/${{ env.VERSION }}/fluorite-os/cloud-vtpm/disk.raw"
+          else
+            MEASUREMENT_URL="https://storage.googleapis.com/fluorite/${{ env.VERSION }}/fluorite-os/cloud-vtpm-with-gpu/os-measurement.json"
+            OS_DISK_URL="https://storage.googleapis.com/fluorite/${{ env.VERSION }}/fluorite-os/cloud-vtpm-with-gpu/disk.raw"
           fi
           OS_MEASUREMENT=$(curl $MEASUREMENT_URL | jq -r .fluoriteos_pcr4)
           echo "OS_MEASUREMENT=$OS_MEASUREMENT" >> $GITHUB_ENV
