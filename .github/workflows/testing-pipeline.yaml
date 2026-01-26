@@ -264,7 +264,7 @@ jobs:
           DEPLOYMENT_CONFIG_PATH="${{ env.DIR }}/deployment_config.yaml"
           echo "DEPLOYMENT_CONFIG_PATH=$DEPLOYMENT_CONFIG_PATH" >> $GITHUB_ENV
 
-          ATS_ENDPOINT="https://ats.${{ github.job }}.${{ env.HOSTNAME }}/verify_csr"
+          ATS_ENDPOINT="https://ats.${{ env.HOSTNAME }}/verify_csr"
           echo "ATS_ENDPOINT=$ATS_ENDPOINT" >> $GITHUB_ENV
 
           ATS_CONTAINER_APP_NAME="ats-app-${{ github.job }}"
