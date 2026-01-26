@@ -1,11 +1,3 @@
-#!/usr/bin/env python3
-# /// script
-# requires-python = ">=3.10"
-# dependencies = [
-#     "requests>=2.28.0",
-#     "pydantic>=2.0.0",
-# ]
-# ///
 """
 GCP VM CLI - Provision GCP Shielded VMs with attestation support.
 
@@ -15,10 +7,6 @@ This script orchestrates the deployment of:
 
 The notarizer on the CVM endorses the Shielded VMs' attestation keys,
 allowing them to be verified through the CVM's trusted certificate chain.
-
-Prerequisites:
-- Run `earthly +gcp-notarizer-os` to build platform/gcp-cvm-notarizer/image.raw
-- Have gcloud CLI configured with appropriate permissions
 """
 
 import argparse
@@ -45,9 +33,11 @@ logging.basicConfig(
     level=logging.INFO,
 )
 
+IMAGE_PROJECT = "fluorite-os"
+
 # Paths relative to the repository root
 REPO_ROOT = Path(__file__).parent.parent.parent
-DEFAULT_NOTARIZER_IMAGE_PATH = REPO_ROOT / "gcp-cvm-notarizer" / "disk.raw"
+DEFAULT_NOTARIZER_IMAGE_PATH = REPO_ROOT / "gcp-shielded-vm-notarizer" / "disk.raw"
 DEFAULT_SHIELDED_VM_IMAGE_PATH = REPO_ROOT / "fluorite-os" / "cloud-vtpm" / "disk.raw"
 
 # ============================================================================
@@ -85,10 +75,10 @@ SERVER_PORTS.append(CUSTOM_PROTOCOL_PORT)
 AGENT_PORTS = [CUSTOM_PROTOCOL_PORT]
 
 # Network tags for each role
-TAG_NOTARIZER = "fluorite-notarizer"
-TAG_MASTER = "fluorite-master"
-TAG_SERVER = "fluorite-server"
-TAG_AGENT = "fluorite-agent"
+TAG_NOTARIZER = "fluorite-gcp-shielded-vm-notarizer"
+TAG_MASTER = "fluorite-master-node"
+TAG_SERVER = "fluorite-k3s-server-node"
+TAG_AGENT = "fluorite-k3s-agent-node"
 
 
 class ClusterNode(BaseModel):
@@ -108,9 +98,8 @@ class GCPConfig:
     project: str
     zone: str
     subnet: str
-    bucket: str
-    machine_type_cvm: str = "n2d-standard-2"
-    machine_type_shielded: str = "n2-standard-8"
+    machine_type_notarizer: str = "n2d-standard-2"
+    machine_type: str = "n2-standard-8"
 
 
 def run_command(
@@ -223,7 +212,7 @@ def create_firewall_rules(config: GCPConfig, network: str = "std"):
 
 def upload_image_to_gcs(
     image_path: Path,
-    config: GCPConfig,
+    bucket: str,
     image_hash: str,
     image_prefix: str = "gcp-notarizer-os",
 ) -> str:
@@ -237,7 +226,7 @@ def upload_image_to_gcs(
     logging.info(f"Compressing and uploading {image_prefix} image to GCS...")
 
     blob_name = f"{image_prefix}-{image_hash}.tar.gz"
-    gcs_uri = f"gs://{config.bucket}/{blob_name}"
+    gcs_uri = f"gs://{bucket}/{blob_name}"
 
     # Check if already uploaded
     result = run_gsutil(["ls", gcs_uri], check=False, capture_output=True)
@@ -368,11 +357,11 @@ def create_notarizer_cvm(
             f"--project={config.project}",
             f"--zone={config.zone}",
             "--confidential-compute-type=SEV",
-            f"--machine-type={config.machine_type_cvm}",
+            f"--machine-type={config.machine_type_notarizer}",
             "--min-cpu-platform=AMD Milan",
             "--maintenance-policy=MIGRATE",
             f"--image={image_name}",
-            f"--image-project={config.project}",
+            f"--image-project={IMAGE_PROJECT}",
             f"--subnet={config.subnet}",
             "--scopes=compute-ro",
             f"--metadata-from-file=creator-certificate={creator_cert_file}",
@@ -405,7 +394,7 @@ def create_notarizer_cvm(
 def wait_for_notarizer_service(
     ip: str,
     port: int,
-    operator_cert_path: str,
+    operator_pem_cert_path: str,
     operator_key_path: str,
     timeout: int = 300,
 ) -> bool:
@@ -419,7 +408,7 @@ def wait_for_notarizer_service(
         try:
             response = requests.get(
                 url,
-                cert=(operator_cert_path, operator_key_path),
+                cert=(operator_pem_cert_path, operator_key_path),
                 verify=False,
                 timeout=5,
             )
@@ -482,10 +471,10 @@ def create_shielded_vm(
             "compute", "instances", "create", name,
             f"--project={config.project}",
             f"--zone={config.zone}",
-            f"--machine-type={config.machine_type_shielded}",
+            f"--machine-type={config.machine_type}",
             "--shielded-vtpm",
             f"--image={image}",
-            f"--image-project={config.project}",
+            f"--image-project={IMAGE_PROJECT}",
             f"--subnet={config.subnet}",
             f"--metadata-from-file=user-data={userdata_file}",
             f"--tags={network_tag}",
@@ -515,7 +504,7 @@ def get_notarizer_endorsement(
     target_project: str,
     target_zone: str,
     target_instance: str,
-    operator_cert_path: str,
+    operator_pem_cert_path: str,
     operator_key_path: str,
 ) -> dict:
     """
@@ -536,7 +525,7 @@ def get_notarizer_endorsement(
     response = requests.post(
         url,
         json=request_body,
-        cert=(operator_cert_path, operator_key_path),
+        cert=(operator_pem_cert_path, operator_key_path),
         verify=False,  # Self-signed server cert
         timeout=30,
     )
@@ -603,15 +592,20 @@ def main(
     project: str,
     zone: str,
     subnet: str,
-    bucket: str,
-    operator_cert_path: str,
+    operator_pem_cert_path: str,
     operator_key_path: str,
-    notarizer_image_path: Path,
     num_servers: int,
     num_agents: int,
     cvm_name: str = "notarizer-cvm",
-    shielded_vm_image_path: Optional[Path] = None,
+    bucket: Optional[str] = None,
+    notarizer_image: Optional[str] = None,
+    notarizer_image_path: Optional[Path] = None,
+    fluorite_os_image: Optional[str] = None,
+    fluorite_os_image_path: Optional[Path] = None,
     skip_cleanup: bool = False,
+    output_path: Path = Path("./cluster.json"),
+    machine_type_notarizer: str = "n2d-standard-2",
+    machine_type: str = "n2-standard-8",
 ):
     """Main orchestration function."""
     
@@ -623,7 +617,8 @@ def main(
         project=project,
         zone=zone,
         subnet=subnet,
-        bucket=bucket,
+        machine_type_notarizer=machine_type_notarizer,
+        machine_type=machine_type,
     )
     
     notarizer_image_name = ""
@@ -640,35 +635,47 @@ def main(
         
         create_firewall_rules(config)
         
-        # Step 1: Upload notarizer image to GCS and create GCP image
+        # Step 1: Prepare notarizer OS image
         logging.info("=" * 60)
         logging.info("Step 1: Preparing notarizer OS image")
         logging.info("=" * 60)
         
-        notarizer_hash = get_image_hash(notarizer_image_path)
-        gcs_uri = upload_image_to_gcs(
-            notarizer_image_path, config, notarizer_hash, image_prefix="gcp-notarizer-os"
-        )
-        notarizer_image_name = create_gcp_image(
-            gcs_uri, config, notarizer_hash,
-            image_prefix="gcp-notarizer-os",
-            guest_os_features="UEFI_COMPATIBLE,SEV_CAPABLE,SEV_SNP_CAPABLE,SEV_LIVE_MIGRATABLE_V2,VIRTIO_SCSI_MULTIQUEUE",
-        )
-        
+        if notarizer_image:
+            # Use existing GCP image directly
+            notarizer_image_name = notarizer_image
+            logging.info(f"Using existing notarizer image: {notarizer_image_name}")
+        else:
+            # Upload from local path and create image
+            notarizer_hash = get_image_hash(notarizer_image_path)
+            gcs_uri = upload_image_to_gcs(
+                notarizer_image_path, config, notarizer_hash, image_prefix="gcp-notarizer-os"
+            )
+            notarizer_image_name = create_gcp_image(
+                gcs_uri, config, notarizer_hash,
+                image_prefix="gcp-notarizer-os",
+                guest_os_features="UEFI_COMPATIBLE,SEV_CAPABLE,SEV_SNP_CAPABLE,SEV_LIVE_MIGRATABLE_V2,VIRTIO_SCSI_MULTIQUEUE",
+            )
 
+        # Step 1b: Prepare Shielded VM OS image
         logging.info("=" * 60)
-        logging.info("Step 1b: Preparing Shielded VM OS image")
+        logging.info("Step 1b: Preparing Fluorite OS image")
         logging.info("=" * 60)
         
-        shielded_hash = get_image_hash(shielded_vm_image_path)
-        shielded_gcs_uri = upload_image_to_gcs(
-            shielded_vm_image_path, config, shielded_hash, image_prefix="gcp-shielded-vm"
-        )
-        shielded_vm_image_name = create_gcp_image(
-            shielded_gcs_uri, config, shielded_hash,
-            image_prefix="gcp-shielded-vm",
-            guest_os_features="UEFI_COMPATIBLE",
-        )
+        if fluorite_os_image:
+            # Use existing GCP image directly
+            shielded_vm_image_name = fluorite_os_image
+            logging.info(f"Using existing Fluorite OS image: {shielded_vm_image_name}")
+        else:
+            # Upload from local path and create image
+            shielded_hash = get_image_hash(fluorite_os_image_path)
+            shielded_gcs_uri = upload_image_to_gcs(
+                fluorite_os_image_path, config, shielded_hash, image_prefix="gcp-shielded-vm"
+            )
+            shielded_vm_image_name = create_gcp_image(
+                shielded_gcs_uri, config, shielded_hash,
+                image_prefix="gcp-shielded-vm",
+                guest_os_features="UEFI_COMPATIBLE",
+            )
         
         # Step 2: Create the CVM for the notarizer
         logging.info("=" * 60)
@@ -750,7 +757,7 @@ def main(
             update_vm_metadata(name, config, endorsements[name], creator_cert_pem)
         
         # Save cluster configuration
-        with open("cluster.json", "w") as f:
+        with open(output_path, "w") as f:
             f.write(cluster.model_dump_json(indent=2))
         
         # Save endorsements for reference
@@ -759,7 +766,7 @@ def main(
         
         logging.info("=" * 60)
         logging.info("Deployment complete!")
-        logging.info(f"Cluster configuration saved to cluster.json")
+        logging.info(f"Cluster configuration saved to {output_path}")
         logging.info(f"Endorsements saved to endorsements.json")
         logging.info("=" * 60)
         
@@ -808,8 +815,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--bucket",
         type=str,
-        required=True,
-        help="GCS bucket for storing the notarizer OS image",
+        required=False,
+        help="GCS bucket for storing images (required when using --*-image-path options)",
     )
     
     parser.add_argument(
@@ -826,18 +833,30 @@ if __name__ == "__main__":
         help="Path to the operator private key",
     )
     
-    parser.add_argument(
-        "--image-notarizer-path",
+    # Notarizer image options (mutually exclusive)
+    notarizer_group = parser.add_mutually_exclusive_group(required=True)
+    notarizer_group.add_argument(
+        "--notarizer-image",
         type=str,
-        default=str(DEFAULT_NOTARIZER_IMAGE_PATH),
-        help=f"Path to the notarizer disk.raw file (default: {DEFAULT_NOTARIZER_IMAGE_PATH})",
+        help="Name of an existing GCP notarizer image (e.g., gcp-notarizer-os-0-0-0-testing-20260122184816)",
+    )
+    notarizer_group.add_argument(
+        "--notarizer-image-path",
+        type=str,
+        help=f"Path to the notarizer disk.raw file to upload (default: {DEFAULT_NOTARIZER_IMAGE_PATH})",
     )
     
-    parser.add_argument(
-        "--image-shielded-vm-path",
+    # Fluorite OS image options (mutually exclusive)
+    fluorite_os_group = parser.add_mutually_exclusive_group(required=True)
+    fluorite_os_group.add_argument(
+        "--fluorite-os-image",
         type=str,
-        default=str(DEFAULT_SHIELDED_VM_IMAGE_PATH),
-        help=f"Path to the Shielded VM disk.raw file",
+        help="Name of an existing GCP Fluorite OS image (e.g., fluorite-os-0-0-0-testing-20260122184816)",
+    )
+    fluorite_os_group.add_argument(
+        "--fluorite-os-image-path",
+        type=str,
+        help=f"Path to the Fluorite OS disk.raw file to upload (default: {DEFAULT_SHIELDED_VM_IMAGE_PATH})",
     )
 
     parser.add_argument(
@@ -855,16 +874,40 @@ if __name__ == "__main__":
     )
     
     parser.add_argument(
-        "--cvm-name",
+        "--notarizer-instance-name",
         type=str,
-        default="notarizer-cvm",
-        help="Name for the CVM running the notarizer (default: notarizer-cvm)",
+        default="notarizer",
+        help="Name for the CVM running the notarizer (default: notarizer)",
     )
     
     parser.add_argument(
         "--skip-cleanup",
         action="store_true",
         help="Skip cleanup of notarizer CVM (leave it running)",
+    )
+    
+    parser.add_argument(
+        "--output-path",
+        type=str,
+        required=False,
+        help="Path where the output will be saved (e.g. ./cluster.json)",
+        default=Path("./cluster.json"),
+    )
+    
+    parser.add_argument(
+        "--machine-type-notarizer",
+        type=str,
+        required=False,
+        help="GCP machine type for the notarizer CVM (default: n2d-standard-2)",
+        default="n2d-standard-2",
+    )
+    
+    parser.add_argument(
+        "--machine-type",
+        type=str,
+        required=False,
+        help="GCP machine type for the Shielded VMs (default: n2-standard-8)",
+        default="n2-standard-8",
     )
     
     args = parser.parse_args()
@@ -876,15 +919,23 @@ if __name__ == "__main__":
     if not os.path.isfile(args.operator_key_path):
         parser.error(f"Operator private key not found: {args.operator_key_path}")
     
-    notarizer_image_path = Path(args.image_notarizer_path)
-    if not notarizer_image_path.is_file():
-        parser.error(f"Notarizer image not found: {notarizer_image_path}. Run 'earthly +gcp-notarizer-os' first.")
+    # Validate bucket is provided when using path options
+    if (args.notarizer_image_path or args.fluorite_os_image_path) and not args.bucket:
+        parser.error("--bucket is required when using --notarizer-image-path or --fluorite-os-image-path")
     
-    shielded_vm_image_path: Optional[Path] = None
-    if args.image_shielded_vm_path:
-        shielded_vm_image_path = Path(args.image_shielded_vm_path)
-        if not shielded_vm_image_path.is_file():
-            parser.error(f"Shielded VM image not found: {shielded_vm_image_path}")
+    # Validate notarizer image path if provided
+    notarizer_image_path: Optional[Path] = None
+    if args.notarizer_image_path:
+        notarizer_image_path = Path(args.notarizer_image_path)
+        if not notarizer_image_path.is_file():
+            parser.error(f"Notarizer image not found: {notarizer_image_path}. Run 'earthly +gcp-notarizer-os' first.")
+    
+    # Validate Fluorite OS image path if provided
+    fluorite_os_image_path: Optional[Path] = None
+    if args.fluorite_os_image_path:
+        fluorite_os_image_path = Path(args.fluorite_os_image_path)
+        if not fluorite_os_image_path.is_file():
+            parser.error(f"Fluorite OS image not found: {fluorite_os_image_path}")
     
     if args.num_servers < 1:
         parser.error("--num-servers must be at least 1")
@@ -893,13 +944,18 @@ if __name__ == "__main__":
         project=args.project,
         zone=args.zone,
         subnet=args.subnet,
-        bucket=args.bucket,
         operator_cert_path=args.operator_cert_path,
         operator_key_path=args.operator_key_path,
-        notarizer_image_path=notarizer_image_path,
         num_servers=args.num_servers,
         num_agents=args.num_agents,
         cvm_name=args.cvm_name,
-        shielded_vm_image_path=shielded_vm_image_path,
+        bucket=args.bucket,
+        notarizer_image=args.notarizer_image,
+        notarizer_image_path=notarizer_image_path,
+        fluorite_os_image=args.fluorite_os_image,
+        fluorite_os_image_path=fluorite_os_image_path,
         skip_cleanup=args.skip_cleanup,
+        output_path=args.output_path,
+        machine_type_notarizer=args.machine_type_notarizer,
+        machine_type=args.machine_type,
     ))
