@@ -97,6 +97,7 @@ class GCPConfig:
     """GCP configuration for VM creation."""
     project: str
     zone: str
+    network: str
     subnet: str
     machine_type_notarizer: str = "n2d-standard-2"
     machine_type: str = "n2-standard-8"
@@ -128,7 +129,7 @@ def run_gsutil(
     return run_command(["gsutil"] + args, check=check, capture_output=capture_output)
 
 
-def create_firewall_rules(config: GCPConfig, network: str = "std"):
+def create_firewall_rules(config: GCPConfig, network: str):
     """
     Create GCP firewall rules for the fluorite cluster.
     
@@ -591,6 +592,7 @@ def delete_vm(name: str, config: GCPConfig):
 def main(
     project: str,
     zone: str,
+    network: str,
     subnet: str,
     operator_cert_path: str,
     operator_key_path: str,
@@ -616,6 +618,7 @@ def main(
     config = GCPConfig(
         project=project,
         zone=zone,
+        network=network,
         subnet=subnet,
         machine_type_notarizer=machine_type_notarizer,
         machine_type=machine_type,
@@ -801,15 +804,22 @@ if __name__ == "__main__":
     parser.add_argument(
         "--zone",
         type=str,
-        required=True,
+        default="default",
         help="GCP zone (e.g., europe-west10-a)",
+    )   
+    
+    parser.add_argument(
+        "--network",
+        type=str,
+        default="default",
+        help="GCP network name (default: default)",
     )
     
     parser.add_argument(
         "--subnet",
         type=str,
-        required=True,
-        help="GCP subnet name",
+        default="default",
+        help="GCP subnet name (default: default)",
     )
     
     parser.add_argument(
@@ -943,6 +953,7 @@ if __name__ == "__main__":
     sys.exit(main(
         project=args.project,
         zone=args.zone,
+        network=args.network,
         subnet=args.subnet,
         operator_cert_path=args.operator_cert_path,
         operator_key_path=args.operator_key_path,

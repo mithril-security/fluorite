@@ -131,6 +131,7 @@ jobs:
           gcloud services enable compute.googleapis.com --project="$PROJECT_ID"
           gcloud services enable cloudresourcemanager.googleapis.com --project="$PROJECT_ID"
 
+          echo "GCP_NETWORK=default" >> $GITHUB_ENV
           echo "GCP_SUBNET=default" >> $GITHUB_ENV
 
       - name: Install uv
@@ -312,6 +313,7 @@ jobs:
           uv run main.py \
             --project ${{ env.GCP_PROJECT }} \
             --zone ${{ env.GCP_ZONE }} \
+            --network ${{ env.GCP_NETWORK }} \
             --subnet ${{ env.GCP_SUBNET }} \
             --machine-type ${{ env.GCP_MACHINE_TYPE }} \
             --fluorite-os-image ${{ env.GCP_FLUORITE_OS_IMAGE }} \
