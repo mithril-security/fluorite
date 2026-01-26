@@ -27,7 +27,7 @@ IP=$(az containerapp env show \
     -n $CONTAINER_APP_ENV \
     -g $RESOURCE_GROUP \
     --query "properties.staticIp" \
-    -o tsv) & 
+    -o tsv)
 
 # 3. Get the domain verification code.
 echo "Getting domain verification id for $CONTAINER_APP"
@@ -35,9 +35,8 @@ DOMAIN_VERIFICATION_ID=$(az containerapp show \
                         -n $CONTAINER_APP \
                         -g $RESOURCE_GROUP \
                         -o tsv \
-                        --query "properties.customDomainVerificationId") &
+                        --query "properties.customDomainVerificationId")
 
-wait
 
 # 4. Using the DNS provider that is hosting your domain, create DNS records based on the record type 
 # you selected using the values shown in the Domain validation section. The records point the 
@@ -53,7 +52,7 @@ az network dns record-set txt add-record \
     -g $RESOURCE_GROUP \
     --zone-name $ZONE_NAME \
     --record-set-name $TXT_RECORD_NAME \
-    --value $DOMAIN_VERIFICATION_ID & 
+    --value $DOMAIN_VERIFICATION_ID &
 
 # 6. Add the A record for the Container APP
 echo "Adding A record $A_RECORD_NAME"
