@@ -110,6 +110,7 @@ jobs:
         uses: 'google-github-actions/setup-gcloud@v3'
         with:
           version: '>= 363.0.0'
+          cache: true
 
       - name: Create GCP project for test run
         run: |
