@@ -9,6 +9,7 @@ permissions:
 
 env:
   VERSION: 0.0.0-testing-20260125125844
+  ZONE_NAME: test.mithrilsecurity.io
 
 jobs:
   test:
@@ -48,14 +49,11 @@ jobs:
       JOB_NAME: ${{ matrix.job_id }}
       GCP_ZONE: ${{ matrix.zone }}
       GCP_MACHINE_TYPE: ${{ matrix.machine_type }}
-      GCP_DNS_PROJECT: ${{ vars.GCP_DNS_PROJECT || 'fluorite-os' }}
-      DNS_ZONE_NAME: gcp-testing
-      DNS_NAME: gcp.testing.mithrilsecurity.io
       ATTESTATION_BACKEND: ${{ matrix.attestation_backend }}
     steps:
       - name: Set Hostname
         run: |
-          echo "HOSTNAME=${{ env.JOB_NAME }}.${{ env.DNS_NAME }}" >> $GITHUB_ENV
+          echo "HOSTNAME=${{ env.JOB_NAME }}.${{ env.ZONE_NAME }}" >> $GITHUB_ENV
           VERSION_FORMATTED="${VERSION//./-}"
           
           GCP_FLUORITE_OS_IMAGE="fluorite-os-${VERSION_FORMATTED}"
@@ -325,19 +323,24 @@ jobs:
             --output-path ${{ env.DIR }}/cluster.json
 
       - name: Create A record for master VM
-        run: |
-          A_RECORD_NAME="${{ env.JOB_NAME }}"
-          MASTER_IP=$(jq -r '.servers[0].address' ${{ env.DIR }}/cluster.json)
+        uses: azure/cli@v2
+        with:
+          azcliversion: latest
+          inlineScript: |
+            RESOURCE_GROUP="${{ env.RESOURCE_GROUP }}"            
+            A_RECORD_NAME="${{ env.JOB_NAME }}"
+            MASTER_IP=$(jq -r '.servers[0].address' ${{ env.DIR }}/cluster.json)
 
-          # Add the A record for the master vm
-          gcloud dns record-sets create "${A_RECORD_NAME}.${{ env.DNS_NAME }}." \
-            --project=${{ env.GCP_DNS_PROJECT }} \
-            --zone=${{ env.DNS_ZONE_NAME }} \
-            --type=A \
-            --ttl=3600 \
-            --rrdatas=$MASTER_IP
+            # Add the A record for the master vm
+            # TTL set to 10 minutes
+            az network dns record-set a add-record \
+              --resource-group $RESOURCE_GROUP \
+              --zone-name ${{ env.ZONE_NAME }} \
+              --record-set-name $A_RECORD_NAME \
+              --ipv4-address $MASTER_IP  \
+              --ttl 600
 
-          echo "MASTER_IP=$MASTER_IP" >> $GITHUB_ENV
+            echo "MASTER_IP=$MASTER_IP" >> $GITHUB_ENV
 
       - name: Build CLI tools
         run: earthly --strict -P  +operator-cli
@@ -396,12 +399,17 @@ jobs:
       - name: Cleanup GCP resources
         if: always()
         run: |
-          # Delete DNS A record (in DNS project)
-          gcloud dns record-sets delete "${{ env.JOB_NAME }}.${{ env.DNS_NAME }}." \
-            --project=${{ env.GCP_DNS_PROJECT }} \
-            --zone=${{ env.DNS_ZONE_NAME }} \
-            --type=A \
-            --quiet || true
-
           # Delete the test project (this deletes all resources within it)
           gcloud projects delete "${{ env.GCP_PROJECT }}" --quiet || true
+
+      - name: Delete DNS A record
+        if: always()
+        uses: azure/cli@v2
+        with:
+          azcliversion: latest
+          inlineScript: |
+            az network dns record-set a delete \
+              --resource-group ${{ env.RESOURCE_GROUP }} \
+              --zone-name ${{ env.ZONE_NAME }} \
+              --name ${{ env.JOB_NAME }} \
+              --yes || true
