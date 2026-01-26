@@ -474,6 +474,7 @@ def create_shielded_vm(
             f"--zone={config.zone}",
             f"--machine-type={config.machine_type}",
             "--shielded-vtpm",
+            "--maintenance-policy=TERMINATE",
             f"--image={image}",
             f"--image-project={IMAGE_PROJECT}",
             f"--subnet={config.subnet}",
