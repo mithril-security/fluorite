@@ -5,6 +5,7 @@ use dryoc::sign::PublicKey;
 use provisioning_structs::structs::AttestationBackend;
 use provisioning_structs::structs::AttestationValidator;
 use provisioning_structs::structs::OS_MEASUREMENT_SLOT;
+use provisioning_structs::structs::PlatformMeasurements;
 use provisioning_structs::structs::make_basic_cluster_attestation_validator;
 use provisioning_structs::structs::make_basic_multinode_attestation_validator;
 use provisioning_structs::structs::node_attestation_document_with_events_validator;
@@ -33,7 +34,6 @@ use std::sync::Arc;
 use tokio::runtime::Handle;
 use tokio::task;
 use tpm_quote::common::HashingAlgorithm;
-use tpm_quote::common::PcrData;
 use x509_parser::pem::parse_x509_pem;
 use x509_parser::prelude::*;
 
@@ -94,7 +94,7 @@ pub fn make_cluster_policy(
 }
 
 pub fn make_node_policy(
-    expected_platform_measurements: PcrData,
+    expected_platform_measurements: PlatformMeasurements,
     expected_os_measurement_vec: Vec<u8>,
     expected_attestation_backend: AttestationBackend,
 ) -> impl NodePolicy + Send + Sync + 'static {
@@ -130,14 +130,13 @@ pub fn make_node_policy(
             )
         );
 
-        ensure!(
-            expected_platform_measurements.is_subset(pcr_data),
-            format!(
-                "The expected platform measurements are not a subset of the platform measurements returned from the enclave. \nExpected:\n{} \nGot:\n{}\n",
-                serde_json::to_string_pretty(&expected_platform_measurements)?,
-                serde_json::to_string_pretty(&pcr_data)?
-            )
-        );
+        if !expected_platform_measurements.expected_pcr_data.iter().any(|expected_pcr_data|{
+            expected_pcr_data.is_subset(pcr_data)
+        }) {
+            bail!("None of the expected platform measurements was a subset of the pcr_data from the enclave. \nExpected:\n{} \nGot:\n{}\n", serde_json::to_string_pretty(&expected_platform_measurements)?,
+                serde_json::to_string_pretty(&pcr_data)?)
+
+        }
 
         Ok(())
     }
@@ -643,7 +642,7 @@ mod test {
 
     use attestation::cbor;
     use base64::{Engine, prelude::BASE64_STANDARD};
-    use provisioning_structs::structs::{AttestationBackend, ClusterAttestationResponse};
+    use provisioning_structs::structs::{AttestationBackend, ClusterAttestationResponse, PlatformMeasurements};
 
     use crate::verifier::{attestation_validator_after_provisioning, make_cluster_policy, make_multinode_policy, make_node_policy, PcrData};
     use provisioning_structs::structs::ClusterAttestation;
@@ -663,7 +662,7 @@ mod test {
         let attestation_backend = AttestationBackend::AzureConfidentialVM;
         let os_measurement_vec = vec![177, 51, 25, 124, 45, 151, 253, 237, 37, 169, 55, 79, 190, 203, 203, 147, 95, 183, 231, 207, 156, 124, 110, 189, 8, 132, 231, 107, 190, 154, 200, 54];
         let platform_measurements_str = read_to_string("./test_data/measurements_azure.json")?;
-        let platform_measurements: PcrData = serde_json::from_str(&platform_measurements_str)?;
+        let platform_measurements: PlatformMeasurements = serde_json::from_str(&platform_measurements_str)?;
         let attestation_b64 = read_to_string("./test_data/cluster_attestation.b64")?;
 
         let attestation_bytes = BASE64_STANDARD.decode(attestation_b64)?;        

@@ -7,10 +7,10 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 // External crate imports
-use anyhow::{bail, ensure, Context as _};
+use anyhow::{Context as _, bail, ensure};
 use serde::{Deserialize, Serialize};
-use sha2::digest::generic_array::GenericArray;
 use sha2::Sha256;
+use sha2::digest::generic_array::GenericArray;
 use tokio::runtime::Handle;
 use tokio::task;
 
@@ -29,9 +29,7 @@ use azure_trusted_launch_attestation::TrustedLaunchVmAttestationDocument;
 use gcp_shielded_vm_attestation::ShieldedVmAttestationDocument as GcpShieldedVmAttestationDocument;
 use qemu_attestation::QEMUVmAttestationDocument;
 use svsm_sev_attestation::SvsmVtpmAttestationDocument;
-use tpm_quote::common::{
-    Digest, HashingAlgorithm, PcrData, PcrIndex, PcrSlot, SanitizedPcrData,
-};
+use tpm_quote::common::{Digest, HashingAlgorithm, PcrData, PcrIndex, PcrSlot, SanitizedPcrData};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub enum TpmEvent {
@@ -116,13 +114,14 @@ pub fn node_attestation_document_validator(
             let rt_handle = Handle::current();
 
             let pcr_data = task::block_in_place(move || {
-                rt_handle.block_on(async move { attestation_document.verify(UnixTime::now()).await })
+                rt_handle
+                    .block_on(async move { attestation_document.verify(UnixTime::now()).await })
             })?;
             NodeInfo {
                 attestation_backend: AttestationBackend::AzureConfidentialVM,
                 pcr_data: pcr_data,
             }
-        }   
+        }
         NodeAttestationDocument::QEMUVmAttestationDocument(attestation_document) => NodeInfo {
             attestation_backend: AttestationBackend::QEMU,
             pcr_data: attestation_document.verify(UnixTime::now())?,
@@ -131,10 +130,12 @@ pub fn node_attestation_document_validator(
             attestation_backend: AttestationBackend::SvsmVtpm,
             pcr_data: attestation_document.verify(UnixTime::now())?,
         },
-        NodeAttestationDocument::GcpShieldedVmAttestationDocument(attestation_document) => NodeInfo {
-            attestation_backend: AttestationBackend::GcpShieldedVM,
-            pcr_data: attestation_document.verify(UnixTime::now())?,
-        },
+        NodeAttestationDocument::GcpShieldedVmAttestationDocument(attestation_document) => {
+            NodeInfo {
+                attestation_backend: AttestationBackend::GcpShieldedVM,
+                pcr_data: attestation_document.verify(UnixTime::now())?,
+            }
+        }
     })
 }
 
@@ -172,7 +173,7 @@ pub fn node_attestation_document_with_events_validator(
 ) -> anyhow::Result<NodeWithEventsInfo> {
     let node_claims =
         node_attestation_document_validator.validate(&attestation.attestation_document)?;
-    
+
     let slot8_digest = node_claims
         .pcr_data
         .pcr_bank(HashingAlgorithm::Sha256)
@@ -276,13 +277,13 @@ pub fn make_basic_multinode_attestation_validator(
             "The slave_cert in the InitAsMaster event contains duplicate certificates"
         );
 
-        let master_os_measurement = master_info.pcr_data
-                        .pcr_bank(HashingAlgorithm::Sha256)
-                        .context("No SHA256 PCR Bank")?
-                        .bank
-                        .get(&OS_MEASUREMENT_SLOT.pcr_slot)
-                        .context("Failed to get Master OS Measurement PCR bank")?;
-
+        let master_os_measurement = master_info
+            .pcr_data
+            .pcr_bank(HashingAlgorithm::Sha256)
+            .context("No SHA256 PCR Bank")?
+            .bank
+            .get(&OS_MEASUREMENT_SLOT.pcr_slot)
+            .context("Failed to get Master OS Measurement PCR bank")?;
 
         let mut attested_slaves_cert_set = HashSet::new();
         for slave_attestation in &attestation.slaves_attestation_document {
@@ -319,12 +320,13 @@ pub fn make_basic_multinode_attestation_validator(
                     master_cert_pem, slave_master_cert
                 )
             );
-            let slave_os_measurement = slave_info.pcr_data
-                        .pcr_bank(HashingAlgorithm::Sha256)
-                        .context("No SHA256 PCR Bank")?
-                        .bank
-                        .get(&OS_MEASUREMENT_SLOT.pcr_slot)
-                        .context("Failed to get Slave OS Measurement PCR bank")?;
+            let slave_os_measurement = slave_info
+                .pcr_data
+                .pcr_bank(HashingAlgorithm::Sha256)
+                .context("No SHA256 PCR Bank")?
+                .bank
+                .get(&OS_MEASUREMENT_SLOT.pcr_slot)
+                .context("Failed to get Slave OS Measurement PCR bank")?;
             ensure!(
                 slave_os_measurement == master_os_measurement,
                 format!(
@@ -472,7 +474,7 @@ pub enum AttestationBackend {
     GcpShieldedVM,
 }
 
-impl FromStr for AttestationBackend{
+impl FromStr for AttestationBackend {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -482,7 +484,9 @@ impl FromStr for AttestationBackend{
             "AzureTrustedLaunchVM" => Ok(AttestationBackend::AzureTrustedLaunchVM),
             "AzureConfidentialVM" => Ok(AttestationBackend::AzureConfidentialVM),
             "GcpShieldedVM" => Ok(AttestationBackend::GcpShieldedVM),
-            _ => Err(anyhow::format_err!("Choose an attestation backend between SvsmVtpm, QEMU, AzureTrustedLaunchVM, AzureConfidentialVM, GcpShieldedVM. "))
+            _ => Err(anyhow::format_err!(
+                "Choose an attestation backend between SvsmVtpm, QEMU, AzureTrustedLaunchVM, AzureConfidentialVM, GcpShieldedVM. "
+            )),
         }
     }
 }
@@ -669,46 +673,49 @@ pub fn verify_csr_signature(
     // Ok(csr.certification_request_info.subject_pki)
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(transparent)]
+pub struct PlatformMeasurements {
+    pub expected_pcr_data: Vec<PcrData>,
+}
 
 /// Handles parsing the measurements from CLI
-pub fn parse_cli_measurements(platform_measurements_path: PathBuf, os_measurement: String) -> anyhow::Result<(PcrData, Vec<u8>)>{
+pub fn parse_cli_measurements(
+    platform_measurements_path: PathBuf,
+    os_measurement: String,
+) -> anyhow::Result<(PlatformMeasurements, Vec<u8>)> {
     ensure!(
         platform_measurements_path.is_file(),
         "The path to the platform measurements file is not valid"
     );
-    
-    let platform_measurement_str =
-        fs::read_to_string(platform_measurements_path).context("Unable to read platform measurements file")?;
-    let platform_measurements: PcrData =
-        serde_json::from_str(platform_measurement_str.as_str()).context("Can't parse the platform measurements file")?;
 
+    let platform_measurement_str = fs::read_to_string(platform_measurements_path)
+        .context("Unable to read platform measurements file")?;
+    let platform_measurements: PlatformMeasurements =
+        serde_json::from_str(platform_measurement_str.as_str())
+            .context("Can't parse the platform measurements file")?;
 
-    ensure!(
-        !os_measurement.is_empty(),
-        "The os_measurement is empty."
-    );
-    
+    ensure!(!os_measurement.is_empty(), "The os_measurement is empty.");
+
     let os_measurement_vec =
         hex::decode(os_measurement).context("Error decoding os measurement hex string")?;
 
     Ok((platform_measurements, os_measurement_vec))
-
 }
 
 // The certificates were sourced from Microsoft's official Azure documentation :
 // https://learn.microsoft.com/en-us/azure/security/fundamentals/azure-ca-details?tabs=root-and-subordinate-cas-list
-pub const AZURE_ROOT_CERTS: &[&[u8]] = & [
+pub const AZURE_ROOT_CERTS: &[&[u8]] = &[
     include_bytes!("../root_ca_azure/DigiCertGlobalRootCA.crt"),
     include_bytes!("../root_ca_azure/DigiCertGlobalRootG2.crt"),
     include_bytes!("../root_ca_azure/DigiCertGlobalRootG3.crt"),
     include_bytes!("../root_ca_azure/DigiCertTLSECCP384RootG5.crt"),
     include_bytes!("../root_ca_azure/DigiCertTLSRSA4096RootG5.crt"),
     include_bytes!("../root_ca_azure/Microsoft ECC Root Certificate Authority 2017.crt"),
-    include_bytes!("../root_ca_azure/Microsoft RSA Root Certificate Authority 2017.crt")
+    include_bytes!("../root_ca_azure/Microsoft RSA Root Certificate Authority 2017.crt"),
 ];
 
 pub const PROTOCOL_PORT: &str = "3443";
-
 
 #[derive(Serialize, Deserialize)]
 pub struct Config {

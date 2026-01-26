@@ -13,12 +13,14 @@ use sha256::try_digest;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tpm_quote::common::PcrData;
 
 use std::{thread, time::Duration};
 
 use provisioning_structs::structs::{
-    AZURE_ROOT_CERTS, AttestationBackend, AttestedDocument, ClusterAttestationResponse, ClusterConfiguration, ClusterNode, Config, GetInstanceIdentityDocumentResponse, ImdsAttestedDocumentResponse, InitAsMasterRequest, InitAsMasterResponse, InitAsSlaveRequest, Node, PROTOCOL_PORT, ProvisionClusterResponse, ProvisioningState, Role
+    AZURE_ROOT_CERTS, AttestationBackend, AttestedDocument, ClusterAttestationResponse,
+    ClusterConfiguration, ClusterNode, Config, GetInstanceIdentityDocumentResponse,
+    ImdsAttestedDocumentResponse, InitAsMasterRequest, InitAsMasterResponse, InitAsSlaveRequest,
+    Node, PROTOCOL_PORT, PlatformMeasurements, ProvisionClusterResponse, ProvisioningState, Role,
 };
 
 use webpki::{EndEntityCert, KeyUsage, ring};
@@ -237,7 +239,7 @@ async fn open_attested_imds_document(
 async fn get_nodes_instance_identity_document(
     client: &Client,
     vec_cluster_nodes: &Vec<ClusterNode>,
-    attestation_backend: AttestationBackend
+    attestation_backend: AttestationBackend,
 ) -> anyhow::Result<Vec<Node>> {
     let mut ret: Vec<Node> = Vec::new();
     for cluster_node in vec_cluster_nodes {
@@ -274,10 +276,12 @@ async fn get_nodes_instance_identity_document(
                     let instance_identity_document: GetInstanceIdentityDocumentResponse =
                         serde_json::from_str(response.text().await?.as_str())?;
 
-                    if (attestation_backend == AttestationBackend::AzureTrustedLaunchVM) || 
-                        (attestation_backend == AttestationBackend::AzureConfidentialVM)
+                    if (attestation_backend == AttestationBackend::AzureTrustedLaunchVM)
+                        || (attestation_backend == AttestationBackend::AzureConfidentialVM)
                     {
-                        let vm_id = cluster_node.vm_id.clone().ok_or(anyhow!("vm_id field is empty, and the attestation backend is Azure"))?;
+                        let vm_id = cluster_node.vm_id.clone().ok_or(anyhow!(
+                            "vm_id field is empty, and the attestation backend is Azure"
+                        ))?;
 
                         let attested_imds_document = open_attested_imds_document(
                             instance_identity_document.instance_id_document.ok_or(anyhow!("instance_id_document field is empty, and the attestation backend is Azure"))?,
@@ -372,18 +376,16 @@ pub async fn provision_cluster(
     operator_cert_path: PathBuf,
     operator_private_key_path: PathBuf,
     os_measurement_vec: Vec<u8>,
-    platform_measurements: PcrData,
+    platform_measurements: PlatformMeasurements,
     attestation_backend: AttestationBackend,
-    deployment_size_bytes: u64
+    deployment_size_bytes: u64,
 ) -> anyhow::Result<()> {
-    
     let operator_cert =
         fs::read_to_string(operator_cert_path).context("Unable to operator certificate file.")?;
-    
-    let operator_private_key =
-        fs::read_to_string(operator_private_key_path).context("Unable to operator certificate private key.")?;
 
-    
+    let operator_private_key = fs::read_to_string(operator_private_key_path)
+        .context("Unable to operator certificate private key.")?;
+
     let cert_with_key_pem = format!("{}{}", &operator_cert, &operator_private_key);
     let id = reqwest::Identity::from_pem(cert_with_key_pem.as_bytes())?;
     let dangerous_client = Client::builder()
@@ -399,19 +401,23 @@ pub async fn provision_cluster(
     let cluster: ClusterConfiguration =
         serde_json::from_str(cluster_json_str.as_str()).context("Can't parse the cluster file")?;
 
-    let config : Config = if let Some(path) = deployment_config_path {
-        let config_str = fs::read_to_string(path).context("Unable to read deployment variables file path")?;
+    let config: Config = if let Some(path) = deployment_config_path {
+        let config_str =
+            fs::read_to_string(path).context("Unable to read deployment variables file path")?;
         serde_yaml::from_str(&config_str).context("Can't parse the deployment variables file")?
-    }else {
+    } else {
         Config::empty()
     };
-        
-    
+
     ensure!(
         !config.package.deploy.set.contains_key("CA_KEY_B64")
             && !config.package.deploy.set.contains_key("CA_CRT_B64")
             && !config.package.deploy.set.contains_key("ATTESTATION_B64")
-            && !config.package.deploy.set.contains_key("SIGNATURE_PRIVATE_KEY_B64"),
+            && !config
+                .package
+                .deploy
+                .set
+                .contains_key("SIGNATURE_PRIVATE_KEY_B64"),
         "The secrets keys `CA_KEY_B64`, `CA_CRT_B64`, `SIGNATURE_PRIVATE_KEY_B64`, `ATTESTATION_B64` are reserved."
     );
 
@@ -421,11 +427,13 @@ pub async fn provision_cluster(
     ensure!(!servers.is_empty());
 
     let mut server_nodes: Vec<Node> =
-        get_nodes_instance_identity_document(&dangerous_client, &servers, attestation_backend).await?;
+        get_nodes_instance_identity_document(&dangerous_client, &servers, attestation_backend)
+            .await?;
 
     let agents = cluster.get_agents();
     let agent_nodes: Vec<Node> =
-        get_nodes_instance_identity_document(&dangerous_client, &agents, attestation_backend).await?;
+        get_nodes_instance_identity_document(&dangerous_client, &agents, attestation_backend)
+            .await?;
 
     // Use the first server as master, which will be used to initialize the cluster
     // All the other nodes, will join the cluster as servers or agents.
@@ -446,8 +454,10 @@ pub async fn provision_cluster(
         slaves,
         public_ip: master.address.to_string(),
     };
-    let init_as_master_endpoint =
-        format!("https://{}:{}/init_as_master", &master.address, PROTOCOL_PORT);
+    let init_as_master_endpoint = format!(
+        "https://{}:{}/init_as_master",
+        &master.address, PROTOCOL_PORT
+    );
 
     let init_as_master_response = dangerous_client
         .post(init_as_master_endpoint.clone())
@@ -523,7 +533,8 @@ pub async fn provision_cluster(
     let provisioning_bundle_hash = try_digest(zarf_package_path)?;
 
     let provisoning_bundle_part = multipart::Part::bytes(file_fs).file_name("package.tar.zst");
-    let deployment_config_str = serde_yaml::to_string(&config).context("Failed serializing the secrets")?;
+    let deployment_config_str =
+        serde_yaml::to_string(&config).context("Failed serializing the secrets")?;
 
     let form = reqwest::multipart::Form::new()
         .part("provisioning_bundle", provisoning_bundle_part)
@@ -570,8 +581,10 @@ pub async fn provision_cluster(
         response_provision_cluster
     );
 
-    let get_cluster_status_endpoint =
-        format!("https://{}:{}/cluster_status", master.address, PROTOCOL_PORT);
+    let get_cluster_status_endpoint = format!(
+        "https://{}:{}/cluster_status",
+        master.address, PROTOCOL_PORT
+    );
 
     loop {
         let response_cluster_status = client

@@ -5,7 +5,6 @@ use oid_registry::OidRegistry;
 use reqwest::Client;
 use serde_json::Value;
 use std::sync::Arc;
-use tpm_quote::common::PcrData;
 use url::Url;
 use x509_parser::utils::format_serial;
 
@@ -14,7 +13,7 @@ use attested_server_verifier::verifier::{
     attestation_validator_after_provisioning, make_cluster_policy, make_node_policy,
 };
 use provisioning_structs::structs::{
-    AttestationBackend, ClusterAttestation, ClusterInfo, NodeAttestationDocument, Proof,
+    AttestationBackend, ClusterAttestation, ClusterInfo, NodeAttestationDocument, PlatformMeasurements, Proof
 };
 
 use anyhow::{Context, anyhow};
@@ -30,7 +29,7 @@ use crate::web_error::AppError;
 pub struct MyState {
     pub client: Client,
     pub os_measurement_vec: Vec<u8>,
-    pub platform_measurements: PcrData,
+    pub platform_measurements: PlatformMeasurements,
     pub operator_certificate: String,
     pub bundle_hash: String,
     pub attestation_backend: AttestationBackend,

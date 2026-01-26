@@ -9,7 +9,6 @@ use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::sync::Arc;
-use tpm_quote::common::PcrData;
 use x509_parser::{
     pem::parse_x509_pem,
     prelude::{FromDer, GeneralName, ParsedExtension, X509CertificationRequest},
@@ -22,7 +21,7 @@ use attested_server_verifier::verifier::{
     make_cluster_policy, make_node_policy,
 };
 use provisioning_structs::structs::{
-    AttestationBackend, ClusterAttestation, Proof, verify_csr_signature,
+    AttestationBackend, ClusterAttestation, PlatformMeasurements, Proof, verify_csr_signature
 };
 
 #[derive(Clone)]
@@ -30,7 +29,7 @@ pub struct MyState {
     pub operator_certificate: String,
     pub bundle_hash: String,
     pub os_measurement_vec: Vec<u8>,
-    pub platform_measurements: PcrData,
+    pub platform_measurements: PlatformMeasurements,
     pub container_client: ContainerClient,
     pub storage_url: Url,
     pub attestation_backend: AttestationBackend,

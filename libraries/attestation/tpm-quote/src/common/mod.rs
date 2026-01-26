@@ -30,14 +30,11 @@ pub struct Quote {
 }
 
 impl Quote {
-    
-    pub fn message(self) -> Vec<u8>
-    {
+    pub fn message(self) -> Vec<u8> {
         self.message
     }
 
-    pub fn signature(self) -> Vec<u8>
-    {
+    pub fn signature(self) -> Vec<u8> {
         self.signature
     }
 }

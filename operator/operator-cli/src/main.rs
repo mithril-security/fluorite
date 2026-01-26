@@ -48,7 +48,7 @@ struct Args {
 
     /// The size of the deployment, it defaults to 100GB. It's how much disk space the deployment needs.
     #[arg(long, default_value_t = 107374182400)]
-    deployment_size_bytes: u64
+    deployment_size_bytes: u64,
 }
 
 #[tokio::main]
@@ -88,7 +88,10 @@ async fn main() -> anyhow::Result<()> {
         parse_cli_measurements(args.platform_measurements_path, args.os_measurement)?;
 
     if let Some(path) = &args.deployment_config_path {
-        ensure!(path.is_file(), "The path to the deployment config file is not valid");
+        ensure!(
+            path.is_file(),
+            "The path to the deployment config file is not valid"
+        );
     }
 
     deploy::provision_cluster(
