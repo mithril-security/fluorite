@@ -330,5 +330,5 @@ jobs:
           VERSION_NO_V="${VERSION#v}"
           curl "https://storage.googleapis.com/fluorite/$VERSION_NO_V/gcp-cvm-notarizer/gcp_notarizer_measurements.json" > libraries/attestation/gcp-shielded-vm-attestation/gcp_notarizer_measurements.json
 
-          earthly --push +attestation-transparency-service-image --tag=$VERSION_NO_V
-          earthly --push +domain-monitor-image --tag=$VERSION_NO_V
+          earthly --push +attestation-transparency-service-image --TAG=$VERSION_NO_V
+          earthly --push +domain-monitor-image --TAG=$VERSION_NO_V
