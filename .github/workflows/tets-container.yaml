@@ -35,7 +35,7 @@ jobs:
           #   vm_type: Standard_D4as_v4
           #   attestation_backend: AzureTrustedLaunchVM
           #   gpu: false
-          - job_id: test-ray-tl
+          - job_id: barbaz
             package: ray-tl
             include_ca: true
             vm_location: francecentral
