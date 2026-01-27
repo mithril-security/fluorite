@@ -468,6 +468,7 @@ def create_shielded_vm(
     creator_cert_pem: str,
     role: str,
     image: Optional[str] = None,
+    max_retries: int = 3,
 ) -> tuple[str, str]:
     """
     Create a GCP Shielded VM (Trusted Launch).
@@ -478,6 +479,7 @@ def create_shielded_vm(
         creator_cert_pem: Operator certificate PEM
         role: Node role - "master", "server", or "agent"
         image: GCP image name to use
+        max_retries: Maximum number of retry attempts for zone resource exhaustion errors
     
     Returns a tuple of (external_ip, instance_self_link).
     """
@@ -523,7 +525,35 @@ def create_shielded_vm(
         if config.label:
             gcloud_args.append(f"--labels={config.label}=true")
         
-        run_gcloud(gcloud_args)
+        # Retry loop for zone resource exhaustion errors
+        last_exception = None
+        for attempt in range(1, max_retries + 1):
+            try:
+                result = run_gcloud(gcloud_args, check=False, capture_output=True)
+                if result.returncode == 0:
+                    break  # Success
+                
+                # Check if this is a zone resource exhaustion error
+                error_output = result.stderr or ""
+                if "ZONE_RESOURCE_POOL_EXHAUSTED" in error_output:
+                    logging.warning(
+                        f"Zone resource exhausted on attempt {attempt}/{max_retries} for {name}. "
+                    )
+                    last_exception = subprocess.CalledProcessError(
+                        result.returncode, gcloud_args, result.stdout, result.stderr
+                    )
+                    if attempt == max_retries:
+                        logging.error(
+                            f"Failed to create VM {name} after {max_retries} attempts due to zone resource exhaustion"
+                        )
+                        raise last_exception
+                else:
+                    # Non-retryable error, raise immediately
+                    raise subprocess.CalledProcessError(
+                        result.returncode, gcloud_args, result.stdout, result.stderr
+                    )
+            except subprocess.CalledProcessError:
+                raise
     finally:
         os.unlink(userdata_file)
     

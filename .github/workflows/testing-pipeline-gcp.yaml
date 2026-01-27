@@ -39,7 +39,7 @@ jobs:
           - job_id: test-ray-tl
             package: ray-tl
             include_ca: true
-            zone: us-central1-c
+            zone: us-central1-a
             machine_type: a2-ultragpu-1g
             attestation_backend: GcpShieldedVM
             gpu: true
