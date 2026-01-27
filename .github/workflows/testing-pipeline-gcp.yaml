@@ -20,13 +20,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - job_id: test-nginx-self-ca
-            package: nginx-self-ca
-            include_ca: false
-            zone: europe-west10-a
-            machine_type: n2-standard-8
-            attestation_backend: GcpShieldedVM
-            gpu: false
+          # - job_id: test-nginx-self-ca
+          #   package: nginx-self-ca
+          #   include_ca: false
+          #   zone: europe-west10-a
+          #   machine_type: n2-standard-8
+          #   attestation_backend: GcpShieldedVM
+          #   gpu: false
 
           # - job_id: test-nginx
           #   package: nginx
@@ -36,13 +36,13 @@ jobs:
           #   attestation_backend: GcpShieldedVM
           #   gpu: false
 
-          # - job_id: test-ray-tl
-          #   package: ray-tl
-          #   include_ca: true
-          #   zone: europe-west4-a
-          #   machine_type: a2-ultragpu-1g
-          #   attestation_backend: GcpShieldedVM
-          #   gpu: true
+          - job_id: test-ray-tl
+            package: ray-tl
+            include_ca: true
+            zone: europe-west4-a
+            machine_type: a2-ultragpu-1g
+            attestation_backend: GcpShieldedVM
+            gpu: true
 
           # - job_id: test-ray
           #   package: ray
