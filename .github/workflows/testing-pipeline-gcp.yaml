@@ -8,7 +8,7 @@ permissions:
   contents: read
 
 env:
-  VERSION: 0.0.0-testing-20260125125844
+  VERSION: 0.0.0-testing-20260127112350
   ZONE_NAME: test.mithrilsecurity.io
 
 jobs:
@@ -168,11 +168,6 @@ jobs:
           PLATFORM_MEASUREMENTS_PATH="./measurements/measurements_gcp_shielded_vm.json"
           echo "PLATFORM_MEASUREMENTS_PATH=$PLATFORM_MEASUREMENTS_PATH" >> $GITHUB_ENV
 
-          # Generate the password for the Attestation Transparency Service
-          ATS_PASSWORD=$(openssl rand -hex 32)
-          echo "::add-mask::$ATS_PASSWORD"        
-          echo "ATS_PASSWORD=$ATS_PASSWORD" >> $GITHUB_ENV
-
           OPERATOR_CERTIFICATE_PATH="${{ env.DIR }}/certificates/cert.pem"
           echo "OPERATOR_CERTIFICATE_PATH=$OPERATOR_CERTIFICATE_PATH" >> $GITHUB_ENV
 
@@ -230,11 +225,16 @@ jobs:
             yq -iy '.package.deploy.set.ATS_ENDPOINT = "${{ env.ATS_ENDPOINT }}"' ${{ env.DEPLOYMENT_CONFIG_PATH }}
           fi
 
+          if [ "${{ matrix.gpu }}" = "true" ]; then
+            # NODES: 2. We have 1 control plane node and one agent node
+            yq -iy '.package.deploy.set.NODES = "2"' ${{ env.DEPLOYMENT_CONFIG_PATH }}
+          fi
+
       - name: Build and deploy Attestation Transparency Service Container App
         if: matrix.include_ca == true
         uses: azure/container-apps-deploy-action@v2
         with:
-          imageToDeploy: mycr32671.azurecr.io/attestation-transparency-service:latest
+          imageToDeploy: mycr32671.azurecr.io/attestation-transparency-service:${{ env.VERSION }}
           containerAppName: ${{ env.ATS_CONTAINER_APP_NAME }}
           containerAppEnvironment: ${{ env.ATS_CONTAINER_APP_ENVIRONMENT }}
           resourceGroup: ${{ env.RESOURCE_GROUP }}
@@ -260,7 +260,7 @@ jobs:
         if: matrix.include_ca == true
         uses: azure/container-apps-deploy-action@v2
         with:
-          imageToDeploy: mycr32671.azurecr.io/domain-monitor:latest
+          imageToDeploy: mycr32671.azurecr.io/domain-monitor:${{ env.VERSION }}
           containerAppName: ${{ env.DOMAIN_MONITOR_CONTAINER_APP_NAME }}
           containerAppEnvironment: ${{ env.DOMAIN_MONITOR_CONTAINER_APP_ENVIRONMENT }}
           resourceGroup: ${{ env.RESOURCE_GROUP }}
@@ -368,21 +368,21 @@ jobs:
 
       - name: Wait for DNS propagation
         run: |
-          # Check every 10 seconds for 2 minutes
-          MAX_RETRIES=12
+          # Check every 30 seconds for 10 minutes
+          MAX_RETRIES=20
           COUNT=0
 
           echo "Checking if ${{ env.HOSTNAME }} points to ${{ env.MASTER_IP }}..."
 
           while [ $COUNT -lt $MAX_RETRIES ]; do
-              CURRENT_IP=$(dig +short @1.1.1.1 A ${{ env.HOSTNAME }})
+              CURRENT_IP=$(dig +short A ${{ env.HOSTNAME }})
 
               if [ "$CURRENT_IP" == "${{ env.MASTER_IP }}" ]; then
                   exit 0
               fi
 
               echo "Retrying... (Attempt $((COUNT+1))/$MAX_RETRIES - Found: $CURRENT_IP)"
-              sleep 10
+              sleep 30
               COUNT=$((COUNT+1))
           done
 
