@@ -1,4 +1,4 @@
-name: Testing Pipeline
+name: Testing Pipeline Azure
 
 on:
   workflow_dispatch:
@@ -52,7 +52,7 @@ jobs:
     env:
       PACKAGE: ${{ matrix.package }}
       # We use job_id from matrix instead of github.job to stay consistent
-      AZURE_CONFIG_DIR: /home/ubuntu/.azure-${{ matrix.job_id }}
+      AZURE_CONFIG_DIR: /home/ubuntu/.azure-gha-${{ github.run_id }}-${{ github.run_attempt }}-${{ strategy.job-index }}
       JOB_NAME: ${{ matrix.job_id }}
       VM_LOCATION: ${{ matrix.vm_location }}
       VM_TYPE: ${{ matrix.vm_type }}
@@ -64,8 +64,8 @@ jobs:
       - name: Set Hostname and create Job dir
         run: |
           echo "HOSTNAME=${{ env.JOB_NAME }}.${{ env.ZONE_NAME }}" >> $GITHUB_ENV
-          mkdir -p "${{ github.workspace }}/${{ env.JOB_NAME }}"
-          echo "DIR=${{ github.workspace }}/${{ env.JOB_NAME }}" >> $GITHUB_ENV
+          mkdir -p "${{ github.workspace }}/${{ env.JOB_NAME }}/${{ github.run_id }}-${{ github.run_attempt }}"
+          echo "DIR=${{ github.workspace }}/${{ env.JOB_NAME }}/${{ github.run_id }}-${{ github.run_attempt }}" >> $GITHUB_ENV
 
       - name: Get provisioning bundle
         run: |
