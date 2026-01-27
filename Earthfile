@@ -402,6 +402,7 @@ domain-monitor:
     # because it's in a different volume, so copy it out of the cache
 
     RUN cp ./target/release/domain-monitor /monitor
+    COPY ./domain-monitor/static/ ./static/
     
     SAVE ARTIFACT /monitor AS LOCAL ./domain-monitor/target/release/domain-monitor
 
@@ -484,11 +485,6 @@ generate-certificates-cli:
 
     RUN cp ./target/release/generate-certificates-cli /generate-certificates-cli
     SAVE ARTIFACT /generate-certificates-cli AS LOCAL ./operator/generate-certificates-cli/target/release/generate-certificates-cli
-
-setup:
-    BUILD +attestation-transparency-service
-    BUILD +domain-monitor
-    BUILD +generate-certificates-cli
 
 zarf-packages:
     BUILD +zarf-ray
