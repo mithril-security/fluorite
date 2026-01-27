@@ -65,16 +65,14 @@ jobs:
         run: |
           echo "HOSTNAME=${{ github.run_id }}-${{ github.run_attempt }}-${{ env.JOB_NAME }}.${{ env.ZONE_NAME }}" >> $GITHUB_ENV
           VERSION_FORMATTED="${VERSION//./-}"
-          
-          GCP_FLUORITE_OS_IMAGE="fluorite-os-${VERSION_FORMATTED}"
-          echo "GCP_FLUORITE_OS_IMAGE=$GCP_FLUORITE_OS_IMAGE" >> $GITHUB_ENV
 
-          GCP_FLUORITE_OS_WITH_GPU_IMAGE="fluorite-os-with-gpu-${VERSION_FORMATTED}"
-          echo "GCP_FLUORITE_OS_WITH_GPU_IMAGE=$GCP_FLUORITE_OS_WITH_GPU_IMAGE" >> $GITHUB_ENV
-
-          if [ "${{ matrix.gpu }}" = "true" ]; then
-            GCP_FLUORITE_OS_IMAGE=$GCP_FLUORITE_OS_WITH_GPU_IMAGE
+          if [ "${{ matrix.gpu }}" = "false" ]; then
+            GCP_FLUORITE_OS_IMAGE="fluorite-os-${VERSION_FORMATTED}"
+          else
+            GCP_FLUORITE_OS_IMAGE="fluorite-os-with-gpu-${VERSION_FORMATTED}"
           fi
+
+          echo "GCP_FLUORITE_OS_IMAGE=$GCP_FLUORITE_OS_IMAGE" >> $GITHUB_ENV
 
           GCP_NOTARIZER_IMAGE="gcp-notarizer-os-${VERSION_FORMATTED}"
           echo "GCP_NOTARIZER_IMAGE=$GCP_NOTARIZER_IMAGE" >> $GITHUB_ENV
