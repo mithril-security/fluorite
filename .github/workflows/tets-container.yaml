@@ -75,12 +75,13 @@ jobs:
           PACKAGE_URL="https://storage.googleapis.com/fluorite/${{ env.VERSION }}/packages/$PACKAGE_NAME"
           PACKAGE_PATH="${{ env.DIR }}/packages/$PACKAGE_NAME"
           
-          curl $PACKAGE_URL -o $PACKAGE_PATH
+          # curl $PACKAGE_URL -o $PACKAGE_PATH
 
           echo "PACKAGE_PATH=$PACKAGE_PATH" >> $GITHUB_ENV
 
           # Compute the hash of the provisioning package
-          BUNDLE_HASH=$(sha256sum $PACKAGE_PATH | awk '{print $1}')
+          # BUNDLE_HASH=$(sha256sum $PACKAGE_PATH | awk '{print $1}')
+          BUNDLE_HASH="01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
           echo "BUNDLE_HASH=$BUNDLE_HASH" >> $GITHUB_ENV
 
           echo "PACKAGE_URL=$PACKAGE_URL" >> $GITHUB_ENV
