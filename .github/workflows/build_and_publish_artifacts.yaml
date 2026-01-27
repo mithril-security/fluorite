@@ -306,7 +306,7 @@ jobs:
     runs-on: fluorite-runner
     timeout-minutes: 60
     environment: release
-    # Wait for the newest gcp_notarizer_measurements have been uploaded
+    # Wait for the newest gcp_notarizer_measurements to be uploaded by build-and-publish
     needs: build-and-publish
     steps:
       - name: Setup Earthly
