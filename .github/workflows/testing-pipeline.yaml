@@ -58,11 +58,6 @@ jobs:
       VM_TYPE: ${{ matrix.vm_type }}
       ATTESTATION_BACKEND: ${{ matrix.attestation_backend }}
     steps:
-      - name: Setup Earthly
-        uses: earthly/actions-setup@v1
-        with:
-          version: v0.8.16
-
       - name: Checkout
         uses: actions/checkout@v4
 
