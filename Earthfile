@@ -191,8 +191,7 @@ fluorite-os:
     ARG snpBareMetal = false
 
     IF [ "$snpBareMetal" = "true" ]
-        COPY svsm-linux-guest/ ./svsm-linux
-        # COPY +build-guest-kernel-svsm/svsm-linux ./svsm-linux
+        COPY +build-guest-kernel-svsm/svsm-linux ./svsm-linux
     END
 
     COPY +setup-rootfs/rootfs ./rootfs
@@ -402,7 +401,6 @@ domain-monitor:
     # because it's in a different volume, so copy it out of the cache
 
     RUN cp ./target/release/domain-monitor /monitor
-    COPY ./domain-monitor/static/ ./static/
     
     SAVE ARTIFACT /monitor AS LOCAL ./domain-monitor/target/release/domain-monitor
 
@@ -432,6 +430,7 @@ domain-monitor-image:
     # Copy the pre-built binary from the GitHub Actions runner's context
     COPY +domain-monitor/monitor ./domain-monitor
     COPY ./measurements/ ./measurements
+    COPY ./domain-monitor/static/ ./static/
 
     EXPOSE 8000
     ENTRYPOINT ["./domain-monitor"]
