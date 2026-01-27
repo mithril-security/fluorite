@@ -428,9 +428,9 @@ jobs:
             gcloud compute images delete "$IMAGE" --project=$PROJECT --quiet
           done
 
-          # Delete firewall rules with the label
+          # Delete firewall rules by name pattern (firewall rules don't support labels)
           echo "Deleting firewall rules..."
-          for RULE in $(gcloud compute firewall-rules list --project=$PROJECT --filter="labels.${LABEL}=true" --format="value(name)"); do
+          for RULE in $(gcloud compute firewall-rules list --project=$PROJECT --filter="name~${LABEL}" --format="value(name)"); do
             echo "  Deleting firewall rule: $RULE"
             gcloud compute firewall-rules delete "$RULE" --project=$PROJECT --quiet || true
           done

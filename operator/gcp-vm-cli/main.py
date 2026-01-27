@@ -199,9 +199,8 @@ def create_firewall_rules(config: GCPConfig):
         if source_ranges:
             gcloud_args.append(f"--source-ranges={','.join(source_ranges)}")
         
-        # Add label if specified
-        if config.label:
-            gcloud_args.append(f"--labels={config.label}=true")
+        # Note: Firewall rules don't support labels, but the label is embedded in the name
+        # for cleanup by name pattern filtering
         
         logging.info(f"Creating firewall rule: {full_name}")
         run_gcloud(gcloud_args)
