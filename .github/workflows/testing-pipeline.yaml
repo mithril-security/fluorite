@@ -8,7 +8,7 @@ permissions:
   contents: read
 
 env:
-  VERSION: 0.0.0-testing-20260125125844
+  VERSION: 0.0.0-testing-20260127112350
   ZONE_NAME: test.mithrilsecurity.io
   AZURE_GALLERY_ID: "/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/fluorite-azure-registries/providers/Microsoft.Compute/galleries/FluoriteGallery/images"
 
@@ -21,27 +21,27 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # - job_id: test-nginx-self-ca
-          #   package: nginx-self-ca
-          #   include_ca: false
-          #   vm_location: francecentral
-          #   vm_type: Standard_D4as_v4
-          #   attestation_backend: AzureTrustedLaunchVM
-          #   gpu: false
-          # - job_id: test-nginx
-          #   package: nginx
-          #   include_ca: true
-          #   vm_location: eastus2
-          #   vm_type: Standard_D4as_v4
-          #   attestation_backend: AzureTrustedLaunchVM
-          #   gpu: false
-          # - job_id: test-ray-tl
-          #   package: ray-tl
-          #   include_ca: true
-          #   vm_location: francecentral
-          #   vm_type: Standard_NC24ads_A100_v4
-          #   attestation_backend: AzureTrustedLaunchVM
-          #   gpu: true
+          - job_id: test-nginx-self-ca
+            package: nginx-self-ca
+            include_ca: false
+            vm_location: francecentral
+            vm_type: Standard_D4as_v4
+            attestation_backend: AzureTrustedLaunchVM
+            gpu: false
+          - job_id: test-nginx
+            package: nginx
+            include_ca: true
+            vm_location: eastus2
+            vm_type: Standard_D4as_v4
+            attestation_backend: AzureTrustedLaunchVM
+            gpu: false
+          - job_id: test-ray-tl
+            package: ray-tl
+            include_ca: true
+            vm_location: francecentral
+            vm_type: Standard_NC24ads_A100_v4
+            attestation_backend: AzureTrustedLaunchVM
+            gpu: true
           - job_id: test-ray
             package: ray
             include_ca: true
@@ -64,8 +64,8 @@ jobs:
       - name: Set Hostname and create Job dir
         run: |
           echo "HOSTNAME=${{ env.JOB_NAME }}.${{ env.ZONE_NAME }}" >> $GITHUB_ENV
-          mkdir -p "${{ github.workspace }}/${{ env.JOB_NAME }}/${{ github.run_id }}-${{ github.run_attempt }}"
-          echo "DIR=${{ github.workspace }}/${{ env.JOB_NAME }}/${{ github.run_id }}-${{ github.run_attempt }}" >> $GITHUB_ENV
+          mkdir -p "${{ github.workspace }}/${{ github.run_id }}-${{ github.run_attempt }}/${{ env.JOB_NAME }}"
+          echo "DIR=${{ github.workspace }}/${{ github.run_id }}-${{ github.run_attempt }}/${{ env.JOB_NAME }}" >> $GITHUB_ENV
 
       - name: Get provisioning bundle
         run: |
@@ -120,9 +120,9 @@ jobs:
             MEASUREMENT_URL="https://storage.googleapis.com/fluorite/${{ env.VERSION }}/fluorite-os/cloud-vtpm/os-measurement.json"
             OS_DISK_URL="https://storage.googleapis.com/fluorite/${{ env.VERSION }}/fluorite-os/cloud-vtpm/disk.raw"
           else
-            echo "AZURE_IMAGE=${{ env.AZURE_GALLERY_ID }}/fluorite-os-with-gpu-debug-${VERSION_FORMATTED}/versions/1.0.0" >> $GITHUB_ENV
-            MEASUREMENT_URL="https://storage.googleapis.com/fluorite/${{ env.VERSION }}/fluorite-os/cloud-vtpm-with-gpu-debug/os-measurement.json"
-            OS_DISK_URL="https://storage.googleapis.com/fluorite/${{ env.VERSION }}/fluorite-os/cloud-vtpm-with-gpu-debug/disk.raw"
+            echo "AZURE_IMAGE=${{ env.AZURE_GALLERY_ID }}/fluorite-os-with-gpu-${VERSION_FORMATTED}/versions/1.0.0" >> $GITHUB_ENV
+            MEASUREMENT_URL="https://storage.googleapis.com/fluorite/${{ env.VERSION }}/fluorite-os/cloud-vtpm-with-gpu/os-measurement.json"
+            OS_DISK_URL="https://storage.googleapis.com/fluorite/${{ env.VERSION }}/fluorite-os/cloud-vtpm-with-gpu/disk.raw"
           fi
           # Get the latest FluoriteOS image published on Azure Image Gallery and it's PCR4 Golden Value
           OS_MEASUREMENT=$(curl $MEASUREMENT_URL | jq -r .fluoriteos_pcr4)
@@ -198,7 +198,7 @@ jobs:
         if: matrix.include_ca == true
         uses: azure/container-apps-deploy-action@v2
         with:
-          imageToDeploy: mycr32671.azurecr.io/attestation-transparency-service:latest
+          imageToDeploy: mycr32671.azurecr.io/attestation-transparency-service:${{ env.VERSION }}
           containerAppName: ${{ env.ATS_CONTAINER_APP_NAME }}
           containerAppEnvironment: ${{ env.ATS_CONTAINER_APP_ENVIRONMENT }}
           resourceGroup: ${{ env.RESOURCE_GROUP }}
@@ -224,7 +224,7 @@ jobs:
         if: matrix.include_ca == true
         uses: azure/container-apps-deploy-action@v2
         with:
-          imageToDeploy: mycr32671.azurecr.io/domain-monitor:latest
+          imageToDeploy: mycr32671.azurecr.io/domain-monitor:${{ env.VERSION }}
           containerAppName: ${{ env.DOMAIN_MONITOR_CONTAINER_APP_NAME }}
           containerAppEnvironment: ${{ env.DOMAIN_MONITOR_CONTAINER_APP_ENVIRONMENT }}
           resourceGroup: ${{ env.RESOURCE_GROUP }}
@@ -362,10 +362,10 @@ jobs:
             --attestation-backend ${{ env.ATTESTATION_BACKEND }} \
             $CA_FLAG
 
-      # - name: Delete resource group
-      #   if: always()
-      #   uses: azure/cli@v2
-      #   with:
-      #     azcliversion: latest
-      #     inlineScript: |
-      #       az group delete -n "EndToEndTest-${{ env.JOB_NAME }}" --force-deletion-types Microsoft.Compute/virtualMachines --yes
+      - name: Delete resource group
+        if: always()
+        uses: azure/cli@v2
+        with:
+          azcliversion: latest
+          inlineScript: |
+            az group delete -n "EndToEndTest-${{ env.JOB_NAME }}" --force-deletion-types Microsoft.Compute/virtualMachines --yes
