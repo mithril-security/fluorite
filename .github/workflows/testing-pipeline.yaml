@@ -189,7 +189,8 @@ jobs:
             yq -iy '.package.deploy.set.ATS_ENDPOINT = "${{ env.ATS_ENDPOINT }}"' ${{ env.DEPLOYMENT_CONFIG_PATH }}
           fi
 
-          if if [ "${{ matrix.gpu }}" = "false" ]; then
+          if [ "${{ matrix.gpu }}" = "true" ]; then
+            # NODES: 2. We have 1 control plane node and one agent node
             yq -iy '.package.deploy.set.NODES = "2"' ${{ env.DEPLOYMENT_CONFIG_PATH }}
           fi
 
