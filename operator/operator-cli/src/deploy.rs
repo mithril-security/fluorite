@@ -530,7 +530,6 @@ pub async fn provision_cluster(
         .context("Error when creating reqwest client")?;
 
     let file_fs = fs::read(&zarf_package_path).context("Unable to read zarf package")?;
-    let provisioning_bundle_hash = try_digest(zarf_package_path)?;
 
     let provisoning_bundle_part = multipart::Part::bytes(file_fs).file_name("package.tar.zst");
     let deployment_config_str =
@@ -548,7 +547,6 @@ pub async fn provision_cluster(
 
     let response_provision_cluster = client
         .post(post_provision_cluster_endpoint.clone())
-        .timeout(Duration::from_mins(5))
         .multipart(form)
         .send()
         .await
@@ -556,7 +554,7 @@ pub async fn provision_cluster(
             "Network error trying to send POST request to {}",
             post_provision_cluster_endpoint
         ))?;
-
+    
     if !response_provision_cluster.status().is_success() {
         let status = response_provision_cluster.status();
         let error_text = response_provision_cluster
@@ -581,6 +579,8 @@ pub async fn provision_cluster(
         response_provision_cluster
     );
 
+    let provisioning_bundle_hash = try_digest(zarf_package_path)?;
+    
     let get_cluster_status_endpoint = format!(
         "https://{}:{}/cluster_status",
         master.address, PROTOCOL_PORT
