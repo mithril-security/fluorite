@@ -155,16 +155,16 @@ jobs:
             ATS_ENDPOINT="https://ats.${{ env.HOSTNAME }}/verify_csr"
             echo "ATS_ENDPOINT=$ATS_ENDPOINT" >> $GITHUB_ENV
 
-            ATS_CONTAINER_APP_NAME="ats-app-${{ env.JOB_NAME }}-${{ github.run_attempt }}"
+            ATS_CONTAINER_APP_NAME="ats-app-${{ env.JOB_NAME }}-${{ github.run_id }}"
             echo "ATS_CONTAINER_APP_NAME=$ATS_CONTAINER_APP_NAME" >> $GITHUB_ENV
 
-            ATS_CONTAINER_APP_ENVIRONMENT="ats-env-${{ env.JOB_NAME }}-${{ github.run_attempt }}"
+            ATS_CONTAINER_APP_ENVIRONMENT="ats-env-${{ env.JOB_NAME }}-${{ github.run_id }}"
             echo "ATS_CONTAINER_APP_ENVIRONMENT=$ATS_CONTAINER_APP_ENVIRONMENT" >> $GITHUB_ENV
 
-            DOMAIN_MONITOR_CONTAINER_APP_NAME="dom-mon-app-${{ env.JOB_NAME }}-${{ github.run_attempt }}"
+            DOMAIN_MONITOR_CONTAINER_APP_NAME="dom-mon-app-${{ env.JOB_NAME }}-${{ github.run_id }}"
             echo "DOMAIN_MONITOR_CONTAINER_APP_NAME=$DOMAIN_MONITOR_CONTAINER_APP_NAME" >> $GITHUB_ENV
 
-            DOMAIN_MONITOR_CONTAINER_APP_ENVIRONMENT="dom-mon-env-${{ env.JOB_NAME }}-${{ github.run_attempt }}"
+            DOMAIN_MONITOR_CONTAINER_APP_ENVIRONMENT="dom-mon-env-${{ env.JOB_NAME }}-${{ github.run_id }}"
             echo "DOMAIN_MONITOR_CONTAINER_APP_ENVIRONMENT=$DOMAIN_MONITOR_CONTAINER_APP_ENVIRONMENT" >> $GITHUB_ENV
 
             BLOB_STORAGE_URL="https://proof.ivan.mithrilsecurity.io/"
