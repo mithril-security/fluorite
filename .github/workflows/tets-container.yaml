@@ -28,20 +28,20 @@ jobs:
           #   vm_type: Standard_D4as_v4
           #   attestation_backend: AzureTrustedLaunchVM
           #   gpu: false
-          - job_id: test-nginx
-            package: nginx
-            include_ca: true
-            vm_location: eastus2
-            vm_type: Standard_D4as_v4
-            attestation_backend: AzureTrustedLaunchVM
-            gpu: false
-          # - job_id: test-ray-tl
-          #   package: ray-tl
+          # - job_id: test-nginx
+          #   package: nginx
           #   include_ca: true
-          #   vm_location: francecentral
-          #   vm_type: Standard_NC24ads_A100_v4
+          #   vm_location: eastus2
+          #   vm_type: Standard_D4as_v4
           #   attestation_backend: AzureTrustedLaunchVM
-          #   gpu: true
+          #   gpu: false
+          - job_id: test-ray-tl
+            package: ray-tl
+            include_ca: true
+            vm_location: francecentral
+            vm_type: Standard_NC24ads_A100_v4
+            attestation_backend: AzureTrustedLaunchVM
+            gpu: true
           # - job_id: test-ray
           #   package: ray
           #   include_ca: true
@@ -219,7 +219,7 @@ jobs:
             AZURE_SUBSCRIPTION_ID="${{ secrets.AZURE_SUBSCRIPTION_ID }}"
             IDENTITY_RESOURCE_ID="/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ env.RESOURCE_GROUP }}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/attestation-transparency-service-identity"
             PLATFORM_MEASUREMENTS_PATH="${{ env.PLATFORM_MEASUREMENTS_PATH }}"
-            
+
       - name: Build and deploy domain-monitor Container App
         if: matrix.include_ca == true
         uses: azure/container-apps-deploy-action@v2
