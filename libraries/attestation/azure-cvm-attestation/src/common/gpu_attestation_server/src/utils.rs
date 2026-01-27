@@ -212,18 +212,18 @@ pub(crate) async fn ocsp_certificate_chain_validation(
 
     let end_index = cert_chain.len() - 1;
 
-    let ocsp_url = Url::parse(OCSP_URL)?;
+    let ocsp_url = Url::parse(OCSP_URL_NVIDIA)?;
     ensure!(
         ocsp_url.scheme() == "https",
-        anyhow::format_err!("OCSP_URL does not start with https: {}", ocsp_url)
+        anyhow::format_err!("OCSP_URL_NVIDIA does not start with https: {}", ocsp_url)
     );
 
-    let ocsp_url_nvidia = Url::parse(OCSP_URL_NVIDIA)?;
+    let ocsp_url_fallback = Url::parse(OCSP_URL)?;
     ensure!(
-        ocsp_url_nvidia.scheme() == "https",
+        ocsp_url_fallback.scheme() == "https",
         anyhow::format_err!(
-            "OCSP_URL_NVIDIA does not start with https: {}",
-            ocsp_url_nvidia
+            "OCSP_URL does not start with https: {}",
+            ocsp_url_fallback
         )
     );
 
@@ -244,14 +244,14 @@ pub(crate) async fn ocsp_certificate_chain_validation(
             Err(err) => {
                 // Fallback to Nvidia OCSP Service if the fetch fails
                 warn!("Error fetching OCSP Response from {}: {:?}", ocsp_url, err);
-                warn!("Using fallback url: {}", ocsp_url_nvidia);
-                match fetch_ocsp_response_from_url(ocsp_request_data, ocsp_url_nvidia.clone()).await
+                warn!("Using fallback url: {}", ocsp_url_fallback);
+                match fetch_ocsp_response_from_url(ocsp_request_data, ocsp_url_fallback.clone()).await
                 {
                     Ok(ocsp_response) => Ok(ocsp_response),
                     Err(err) => {
                         warn!(
                             "Error fetching OCSP Response from {}: {:?}",
-                            ocsp_url_nvidia, err
+                            ocsp_url_fallback, err
                         );
                         Err(anyhow::format_err!("Failed to fetch the ocsp response for certificate from both OCSP services."))
                     }
@@ -517,18 +517,18 @@ fn check_https_and_join(url: Url, join_str: String) -> anyhow::Result<Url> {
 
 pub async fn fetch_rim_file(rim_id: String) -> anyhow::Result<String> {
     // RIM service URL should start with https
-    let base_url = check_https_and_join(Url::parse(RIM_SERVICE_BASE_URL)?, rim_id.clone())?;
-    let base_url_nvidia = check_https_and_join(Url::parse(RIM_SERVICE_BASE_URL_NVIDIA)?, rim_id)?;
+    let base_url = check_https_and_join(Url::parse(RIM_SERVICE_BASE_URL_NVIDIA)?, rim_id.clone())?;
+    let base_url_fallback = check_https_and_join(Url::parse(RIM_SERVICE_BASE_URL)?, rim_id)?;
 
     let rim_result = match fetch_rim_file_from_url(base_url.clone()).await {
         Ok(rim_result) => Ok(rim_result),
         Err(err) => {
             warn!("Error fetching RIM from {}: {:?}", base_url, err);
-            warn!("Using fallback url: {}", base_url_nvidia);
-            match fetch_rim_file_from_url(base_url_nvidia.clone()).await {
+            warn!("Using fallback url: {}", base_url_fallback);
+            match fetch_rim_file_from_url(base_url_fallback.clone()).await {
                 Ok(rim_result) => Ok(rim_result),
                 Err(err) => {
-                    warn!("Error fetching RIM from {}: {:?}", base_url_nvidia, err);
+                    warn!("Error fetching RIM from {}: {:?}", base_url_fallback, err);
                     Err(anyhow::format_err!(
                         "Could not fetch the required RIM file from both RIM services: {},",
                         err
