@@ -110,7 +110,7 @@ async fn main() -> anyhow::Result<()> {
         .get(args.master_url)
         .send()
         .await
-        .context("Error while making a request to the app running in kubenetes")?;
+        .context("Error while making a request to the app running in Kubernetes")?;
 
     let status = response.status();
     let response_string = response.text().await?;
