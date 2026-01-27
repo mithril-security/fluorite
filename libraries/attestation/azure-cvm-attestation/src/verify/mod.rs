@@ -143,8 +143,6 @@ impl AsyncVerifyAttestationDocument for ConfidentialVmAttestationDocument {
         )
         .context("Error deserializing attestation")?;
 
-        log::debug!("{:?}",deserialized_attestation);
-
         verify_gpu_evidence(deserialized_attestation)
             .await
             .context("Error verifying attestation result")?;
