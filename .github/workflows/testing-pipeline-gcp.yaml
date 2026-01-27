@@ -58,6 +58,8 @@ jobs:
       GCP_ZONE: ${{ matrix.zone }}
       GCP_MACHINE_TYPE: ${{ matrix.machine_type }}
       ATTESTATION_BACKEND: ${{ matrix.attestation_backend }}
+      AZURE_CONFIG_DIR: /home/ubuntu/.azure-gha-${{ github.run_id }}-${{ github.run_attempt }}-${{ strategy.job-index }}
+
     steps:
       - name: Set Hostname and create Job dir
         run: |
