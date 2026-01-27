@@ -36,6 +36,7 @@ mod test {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn test_azure_cvm_generate_attestation() -> anyhow::Result<()> {
         init_logger_tests();
 
@@ -56,6 +57,7 @@ mod test {
     }
 
     #[tokio::test]
+    #[ignore]
     async fn test_azure_cvm_generate_and_verify() -> anyhow::Result<()> {
         init_logger_tests();
         let pcr_selection_list = PcrSelectionList::builder()

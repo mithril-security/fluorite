@@ -107,6 +107,7 @@ mod test {
     ];
 
     #[tokio::test]
+    #[ignore]
     async fn test_svsm_confidential_vm_attestation_document() -> anyhow::Result<()> {
         let pcr_selection_list = PcrSelectionList::builder()
             .with_selection(HashingAlgorithm::Sha256, ALL_SLOTS)

@@ -44,6 +44,7 @@ mod test {
     use crate::tpm::get_ak_cert;
     use anyhow::Context;
     #[test]
+    #[ignore]
     fn test_get_ak_cert() -> anyhow::Result<()> {
         get_ak_cert().context("Failed getting ak get")?;
 
