@@ -39,7 +39,7 @@ jobs:
           - job_id: test-ray-tl
             package: ray-tl
             include_ca: true
-            zone: europe-west4-a
+            zone: us-east4-c
             machine_type: a2-ultragpu-1g
             attestation_backend: GcpShieldedVM
             gpu: true
@@ -47,7 +47,7 @@ jobs:
           # - job_id: test-ray
           #   package: ray
           #   include_ca: true
-          #   zone: europe-west4-a
+          #   zone: us-east4-c
           #   machine_type: a2-ultragpu-1g
           #   attestation_backend: GcpShieldedVM
           #   gpu: true
