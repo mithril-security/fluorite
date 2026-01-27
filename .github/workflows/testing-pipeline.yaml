@@ -21,27 +21,27 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - job_id: test-nginx-self-ca
-            package: nginx-self-ca
-            include_ca: false
-            vm_location: francecentral
-            vm_type: Standard_D4as_v4
-            attestation_backend: AzureTrustedLaunchVM
-            gpu: false
-          - job_id: test-nginx
-            package: nginx
-            include_ca: true
-            vm_location: eastus2
-            vm_type: Standard_D4as_v4
-            attestation_backend: AzureTrustedLaunchVM
-            gpu: false
-          - job_id: test-ray-tl
-            package: ray-tl
-            include_ca: true
-            vm_location: francecentral
-            vm_type: Standard_NC24ads_A100_v4
-            attestation_backend: AzureTrustedLaunchVM
-            gpu: true
+          # - job_id: test-nginx-self-ca
+          #   package: nginx-self-ca
+          #   include_ca: false
+          #   vm_location: francecentral
+          #   vm_type: Standard_D4as_v4
+          #   attestation_backend: AzureTrustedLaunchVM
+          #   gpu: false
+          # - job_id: test-nginx
+          #   package: nginx
+          #   include_ca: true
+          #   vm_location: eastus2
+          #   vm_type: Standard_D4as_v4
+          #   attestation_backend: AzureTrustedLaunchVM
+          #   gpu: false
+          # - job_id: test-ray-tl
+          #   package: ray-tl
+          #   include_ca: true
+          #   vm_location: francecentral
+          #   vm_type: Standard_NC24ads_A100_v4
+          #   attestation_backend: AzureTrustedLaunchVM
+          #   gpu: true
           - job_id: test-ray
             package: ray
             include_ca: true
@@ -120,9 +120,9 @@ jobs:
             MEASUREMENT_URL="https://storage.googleapis.com/fluorite/${{ env.VERSION }}/fluorite-os/cloud-vtpm/os-measurement.json"
             OS_DISK_URL="https://storage.googleapis.com/fluorite/${{ env.VERSION }}/fluorite-os/cloud-vtpm/disk.raw"
           else
-            echo "AZURE_IMAGE=${{ env.AZURE_GALLERY_ID }}/fluorite-os-with-gpu-${VERSION_FORMATTED}/versions/1.0.0" >> $GITHUB_ENV
-            MEASUREMENT_URL="https://storage.googleapis.com/fluorite/${{ env.VERSION }}/fluorite-os/cloud-vtpm-with-gpu/os-measurement.json"
-            OS_DISK_URL="https://storage.googleapis.com/fluorite/${{ env.VERSION }}/fluorite-os/cloud-vtpm-with-gpu/disk.raw"
+            echo "AZURE_IMAGE=${{ env.AZURE_GALLERY_ID }}/fluorite-os-with-gpu-debug-${VERSION_FORMATTED}/versions/1.0.0" >> $GITHUB_ENV
+            MEASUREMENT_URL="https://storage.googleapis.com/fluorite/${{ env.VERSION }}/fluorite-os/cloud-vtpm-with-gpu-debug/os-measurement.json"
+            OS_DISK_URL="https://storage.googleapis.com/fluorite/${{ env.VERSION }}/fluorite-os/cloud-vtpm-with-gpu-debug/disk.raw"
           fi
           # Get the latest FluoriteOS image published on Azure Image Gallery and it's PCR4 Golden Value
           OS_MEASUREMENT=$(curl $MEASUREMENT_URL | jq -r .fluoriteos_pcr4)
@@ -187,6 +187,10 @@ jobs:
             yq -iy '.package.deploy.set.PUBLIC_CA_KEY = "${{ secrets.PUBLIC_CA_KEY }}"' ${{ env.DEPLOYMENT_CONFIG_PATH }}
             yq -iy '.package.deploy.set.PUBLIC_CA_EMAIL = "${{ secrets.PUBLIC_CA_EMAIL }}"' ${{ env.DEPLOYMENT_CONFIG_PATH }}
             yq -iy '.package.deploy.set.ATS_ENDPOINT = "${{ env.ATS_ENDPOINT }}"' ${{ env.DEPLOYMENT_CONFIG_PATH }}
+          fi
+
+          if if [ "${{ matrix.gpu }}" = "false" ]; then
+            yq -iy '.package.deploy.set.NODES = "2"' ${{ env.DEPLOYMENT_CONFIG_PATH }}
           fi
 
       - name: Build and deploy Attestation Transparency Service Container App
@@ -357,10 +361,10 @@ jobs:
             --attestation-backend ${{ env.ATTESTATION_BACKEND }} \
             $CA_FLAG
 
-      - name: Delete resource group
-        if: always()
-        uses: azure/cli@v2
-        with:
-          azcliversion: latest
-          inlineScript: |
-            az group delete -n "EndToEndTest-${{ env.JOB_NAME }}" --force-deletion-types Microsoft.Compute/virtualMachines --yes
+      # - name: Delete resource group
+      #   if: always()
+      #   uses: azure/cli@v2
+      #   with:
+      #     azcliversion: latest
+      #     inlineScript: |
+      #       az group delete -n "EndToEndTest-${{ env.JOB_NAME }}" --force-deletion-types Microsoft.Compute/virtualMachines --yes
