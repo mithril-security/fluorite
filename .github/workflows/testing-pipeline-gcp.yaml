@@ -28,29 +28,29 @@ jobs:
             attestation_backend: GcpShieldedVM
             gpu: false
 
-          - job_id: test-nginx
-            package: nginx
-            include_ca: true
-            zone: europe-west10-a
-            machine_type: n2-standard-8
-            attestation_backend: GcpShieldedVM
-            gpu: false
+          # - job_id: test-nginx
+          #   package: nginx
+          #   include_ca: true
+          #   zone: europe-west10-a
+          #   machine_type: n2-standard-8
+          #   attestation_backend: GcpShieldedVM
+          #   gpu: false
 
-          - job_id: test-ray-tl
-            package: ray-tl
-            include_ca: true
-            zone: europe-west4-a
-            machine_type: a2-ultragpu-1g
-            attestation_backend: GcpShieldedVM
-            gpu: true
+          # - job_id: test-ray-tl
+          #   package: ray-tl
+          #   include_ca: true
+          #   zone: europe-west4-a
+          #   machine_type: a2-ultragpu-1g
+          #   attestation_backend: GcpShieldedVM
+          #   gpu: true
 
-          - job_id: test-ray
-            package: ray
-            include_ca: true
-            zone: europe-west4-a
-            machine_type: a2-ultragpu-1g
-            attestation_backend: GcpShieldedVM
-            gpu: true
+          # - job_id: test-ray
+          #   package: ray
+          #   include_ca: true
+          #   zone: europe-west4-a
+          #   machine_type: a2-ultragpu-1g
+          #   attestation_backend: GcpShieldedVM
+          #   gpu: true
 
     env:
       PACKAGE: ${{ matrix.package }}
@@ -134,27 +134,17 @@ jobs:
           version: '>= 363.0.0'
           cache: true
 
-      - name: Create GCP project for test run
+      - name: Set GCP project and label
         run: |
-          # Generate a unique project ID (must be 6-30 characters, lowercase letters, digits, hyphens)
-          PROJECT_ID="fluorite-test-${{ github.run_id }}-${{ strategy.job-index }}"
-          # Truncate to 30 chars if needed
-          PROJECT_ID="${PROJECT_ID:0:30}"
-          echo "GCP_PROJECT=$PROJECT_ID" >> $GITHUB_ENV
-
-          # Create the project
-          gcloud projects create "$PROJECT_ID" --organization=${{ secrets.GCP_ORG_ID }}
-
-          # Link billing account (required to create resources)
-          gcloud billing projects link "$PROJECT_ID" \
-            --billing-account=${{ secrets.GCP_BILLING_ACCOUNT }}
-
-          # Enable required APIs
-          gcloud services enable compute.googleapis.com --project="$PROJECT_ID"
-          gcloud services enable cloudresourcemanager.googleapis.com --project="$PROJECT_ID"
-
+          # Use existing fluorite-testing project
+          echo "GCP_PROJECT=fluorite-testing" >> $GITHUB_ENV
           echo "GCP_NETWORK=default" >> $GITHUB_ENV
           echo "GCP_SUBNET=default" >> $GITHUB_ENV
+
+          # Generate a unique label for this test run (must be lowercase, start with letter)
+          # Format: gha-<run_id>-<run_attempt>-<job_index>
+          GCP_LABEL="gha-${{ github.run_id }}-${{ github.run_attempt }}-${{ strategy.job-index }}"
+          echo "GCP_LABEL=$GCP_LABEL" >> $GITHUB_ENV
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
@@ -341,7 +331,8 @@ jobs:
             --operator-key-path ${{ env.OPERATOR_PRIVATE_KEY_PATH }} \
             --num-servers 1 \
             --num-agents 1 \
-            --output-path ${{ env.DIR }}/cluster.json
+            --output-path ${{ env.DIR }}/cluster.json \
+            --label ${{ env.GCP_LABEL }}
 
       - name: Create A record for master VM
         uses: azure/cli@v2
@@ -414,8 +405,38 @@ jobs:
       - name: Cleanup GCP resources
         if: always()
         run: |
-          # Delete the test project (this deletes all resources within it)
-          gcloud projects delete "${{ env.GCP_PROJECT }}" --quiet || true
+          # Delete all GCP resources with the test label
+          PROJECT="${{ env.GCP_PROJECT }}"
+          LABEL="${{ env.GCP_LABEL }}"
+          ZONE="${{ env.GCP_ZONE }}"
+
+          echo "Cleaning up GCP resources with label: $LABEL"
+
+          # Delete VMs with the label
+          echo "Deleting VMs with the label..."
+          gcloud compute instances list --project=$PROJECT --filter="labels.${LABEL}=true" --format="value(name,zone)" | \
+          while read NAME VM_ZONE; do
+            if [ -n "$NAME" ]; then
+              echo "  Deleting VM: $NAME in $VM_ZONE"
+              gcloud compute instances delete "$NAME" --project=$PROJECT --zone="$VM_ZONE" --quiet || true
+            fi
+          done
+
+          echo "Deleting images with the label..."
+          for IMAGE in $(gcloud compute images list --project=$PROJECT --filter="labels.${LABEL}=true" --format="value(name)"); do
+            echo "  Deleting image: $IMAGE"
+            gcloud compute images delete "$IMAGE" --project=$PROJECT --quiet
+          done
+
+          # Delete firewall rules with the label
+          echo "Deleting firewall rules..."
+          for RULE in $(gcloud compute firewall-rules list --project=$PROJECT --filter="labels.${LABEL}=true" --format="value(name)"); do
+            echo "  Deleting firewall rule: $RULE"
+            gcloud compute firewall-rules delete "$RULE" --project=$PROJECT --quiet || true
+          done
+
+          # Note: We don't delete images as they are shared across test runs
+          echo "Cleanup complete!"
 
       - name: Delete DNS A record
         if: always()

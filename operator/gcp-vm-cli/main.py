@@ -74,11 +74,11 @@ SERVER_PORTS.append(CUSTOM_PROTOCOL_PORT)
 # Agent ports: only custom protocol
 AGENT_PORTS = [CUSTOM_PROTOCOL_PORT]
 
-# Network tags for each role
-TAG_NOTARIZER = "fluorite-gcp-shielded-vm-notarizer"
-TAG_MASTER = "fluorite-master-node"
-TAG_SERVER = "fluorite-k3s-server-node"
-TAG_AGENT = "fluorite-k3s-agent-node"
+# Network tags for each role (base names, label suffix added at runtime if specified)
+TAG_NOTARIZER_BASE = "fluorite-gcp-shielded-vm-notarizer"
+TAG_MASTER_BASE = "fluorite-master-node"
+TAG_SERVER_BASE = "fluorite-k3s-server-node"
+TAG_AGENT_BASE = "fluorite-k3s-agent-node"
 
 
 class ClusterNode(BaseModel):
@@ -101,6 +101,29 @@ class GCPConfig:
     subnet: str
     machine_type_notarizer: str = "n2d-standard-2"
     machine_type: str = "n2-standard-8"
+    label: Optional[str] = None  # Optional label to apply to all resources
+
+    def with_label_suffix(self, name: str) -> str:
+        """Add label suffix to a resource name if label is defined."""
+        if self.label:
+            return f"{name}-{self.label}"
+        return name
+
+    def get_tag_notarizer(self) -> str:
+        """Get network tag for notarizer with label suffix if defined."""
+        return self.with_label_suffix(TAG_NOTARIZER_BASE)
+
+    def get_tag_master(self) -> str:
+        """Get network tag for master nodes with label suffix if defined."""
+        return self.with_label_suffix(TAG_MASTER_BASE)
+
+    def get_tag_server(self) -> str:
+        """Get network tag for server nodes with label suffix if defined."""
+        return self.with_label_suffix(TAG_SERVER_BASE)
+
+    def get_tag_agent(self) -> str:
+        """Get network tag for agent nodes with label suffix if defined."""
+        return self.with_label_suffix(TAG_AGENT_BASE)
 
 
 def run_command(
@@ -138,11 +161,14 @@ def create_firewall_rules(config: GCPConfig):
     - Master nodes (control plane + provisioning + ACME + application)
     - Server nodes (control plane + provisioning)
     - Agent nodes (provisioning only)
+    
+    If a label is specified, it is appended to rule names and target tags to avoid conflicts.
     """
     
     def create_rule(name: str, ports: list[tuple[int, str]], target_tags: list[str], source_ranges: list[str] = None):
         """Create a single firewall rule if it doesn't exist."""
-        full_name = f"fluorite-{name}"
+        # Add label suffix to rule name if label is defined
+        full_name = config.with_label_suffix(f"fluorite-{name}")
         
         # Check if rule already exists
         result = run_gcloud(
@@ -173,6 +199,10 @@ def create_firewall_rules(config: GCPConfig):
         if source_ranges:
             gcloud_args.append(f"--source-ranges={','.join(source_ranges)}")
         
+        # Add label if specified
+        if config.label:
+            gcloud_args.append(f"--labels={config.label}=true")
+        
         logging.info(f"Creating firewall rule: {full_name}")
         run_gcloud(gcloud_args)
     
@@ -180,7 +210,7 @@ def create_firewall_rules(config: GCPConfig):
     create_rule(
         name="notarizer",
         ports=[(443, "tcp")],
-        target_tags=[TAG_NOTARIZER],
+        target_tags=[config.get_tag_notarizer()],
         source_ranges=["0.0.0.0/0"],
     )
     
@@ -188,7 +218,7 @@ def create_firewall_rules(config: GCPConfig):
     create_rule(
         name="master",
         ports=MASTER_PORTS,
-        target_tags=[TAG_MASTER],
+        target_tags=[config.get_tag_master()],
         source_ranges=["0.0.0.0/0"],
     )
     
@@ -196,7 +226,7 @@ def create_firewall_rules(config: GCPConfig):
     create_rule(
         name="server",
         ports=SERVER_PORTS,
-        target_tags=[TAG_SERVER],
+        target_tags=[config.get_tag_server()],
         source_ranges=["0.0.0.0/0"],
     )
     
@@ -204,7 +234,7 @@ def create_firewall_rules(config: GCPConfig):
     create_rule(
         name="agent",
         ports=AGENT_PORTS,
-        target_tags=[TAG_AGENT],
+        target_tags=[config.get_tag_agent()],
         source_ranges=["0.0.0.0/0"],
     )
     
@@ -304,6 +334,10 @@ def create_gcp_image(
         f"--guest-os-features={guest_os_features}",
     ]
 
+    # Add label if specified
+    if config.label:
+        gcloud_args.append(f"--labels={config.label}=true")
+
     run_gcloud(gcloud_args)
 
     logging.info(f"Image created: {image_name}")
@@ -366,8 +400,12 @@ def create_notarizer_cvm(
             f"--subnet={config.subnet}",
             "--scopes=compute-ro",
             f"--metadata-from-file=creator-certificate={creator_cert_file}",
-            f"--tags={TAG_NOTARIZER}",
+            f"--tags={config.get_tag_notarizer()}",
         ]
+
+        # Add label if specified
+        if config.label:
+            gcloud_args.append(f"--labels={config.label}=true")
 
         run_gcloud(gcloud_args)
     
@@ -446,13 +484,13 @@ def create_shielded_vm(
     """
     logging.info(f"Creating Shielded VM: {name} (role: {role})")
     
-    # Determine network tag based on role
+    # Determine network tag based on role (with label suffix if defined)
     if role == "master":
-        network_tag = TAG_MASTER
+        network_tag = config.get_tag_master()
     elif role == "server":
-        network_tag = TAG_SERVER
+        network_tag = config.get_tag_server()
     elif role == "agent":
-        network_tag = TAG_AGENT
+        network_tag = config.get_tag_agent()
     else:
         raise ValueError(f"Unknown role: {role}")
     
@@ -468,7 +506,7 @@ def create_shielded_vm(
         userdata_file = f.name
         
     try:
-        run_gcloud([
+        gcloud_args = [
             "compute", "instances", "create", name,
             f"--project={config.project}",
             f"--zone={config.zone}",
@@ -480,7 +518,13 @@ def create_shielded_vm(
             f"--subnet={config.subnet}",
             f"--metadata-from-file=user-data={userdata_file}",
             f"--tags={network_tag}",
-        ])
+        ]
+        
+        # Add label if specified
+        if config.label:
+            gcloud_args.append(f"--labels={config.label}=true")
+        
+        run_gcloud(gcloud_args)
     finally:
         os.unlink(userdata_file)
     
@@ -609,6 +653,7 @@ def main(
     output_path: Path = Path("./cluster.json"),
     machine_type_notarizer: str = "n2d-standard-2",
     machine_type: str = "n2-standard-8",
+    label: Optional[str] = None,
 ):
     """Main orchestration function."""
     
@@ -623,6 +668,7 @@ def main(
         subnet=subnet,
         machine_type_notarizer=machine_type_notarizer,
         machine_type=machine_type,
+        label=label,
     )
     
     notarizer_image_name = ""
@@ -630,6 +676,9 @@ def main(
     cvm_ip = ""
     all_vms: list[tuple[str, str, str, str]] = []  # (name, ip, zone, role)
     endorsements: dict[str, dict] = {}  # instance_name -> endorsement
+    
+    # Pre-compute notarizer VM name with label suffix
+    notarizer_vm_name = config.with_label_suffix(notarizer_instance_name)
     
     try:
         # Step 0: Create firewall rules
@@ -686,7 +735,7 @@ def main(
         logging.info("Step 2: Creating Confidential VM for notarizer")
         logging.info("=" * 60)
         
-        cvm_ip = create_notarizer_cvm(notarizer_instance_name, config, notarizer_image_name, creator_cert_pem)
+        cvm_ip = create_notarizer_cvm(notarizer_vm_name, config, notarizer_image_name, creator_cert_pem)
         
         # Step 3: Wait for notarizer service to be ready
         logging.info("=" * 60)
@@ -706,18 +755,22 @@ def main(
         # Create server nodes (first one is the master)
         for i in range(num_servers):
             if i == 0:
-                name = "master-server"
+                base_name = "master-server"
                 role = "master"
             else:
-                name = f"server-{i}"
+                base_name = f"server-{i}"
                 role = "server"
+            # Add label suffix to VM name if label is defined
+            name = config.with_label_suffix(base_name)
             ip, _ = create_shielded_vm(name, config, creator_cert_pem, role=role, image=shielded_vm_image_name)
             all_vms.append((name, ip, zone, role))
             cluster.servers.append(ClusterNode(name=name, address=ip))
         
         # Create agent nodes
         for i in range(num_agents):
-            name = f"agent-{i}"
+            base_name = f"agent-{i}"
+            # Add label suffix to VM name if label is defined
+            name = config.with_label_suffix(base_name)
             ip, _ = create_shielded_vm(name, config, creator_cert_pem, role="agent", image=shielded_vm_image_name)
             all_vms.append((name, ip, zone, "agent"))
             cluster.agents.append(ClusterNode(name=name, address=ip))
@@ -747,8 +800,8 @@ def main(
         logging.info("=" * 60)
         
         if not skip_cleanup:
-            delete_vm(notarizer_instance_name, config)
-            logging.info(f"Notarizer CVM {notarizer_instance_name} deleted")
+            delete_vm(notarizer_vm_name, config)
+            logging.info(f"Notarizer CVM {notarizer_vm_name} deleted")
         else:
             logging.info(f"Skipping cleanup (--skip-cleanup). Notarizer running at https://{cvm_ip}")
         
@@ -783,7 +836,7 @@ def main(
         if not skip_cleanup:
             logging.info("Cleaning up resources due to error...")
             if cvm_ip:
-                delete_vm(notarizer_instance_name, config)
+                delete_vm(notarizer_vm_name, config)
             for name, _, _, _ in all_vms:
                 delete_vm(name, config)
         
@@ -921,6 +974,16 @@ if __name__ == "__main__":
         default="n2-standard-8",
     )
     
+    parser.add_argument(
+        "--label",
+        type=str,
+        required=False,
+        help="Optional label to apply to all GCP resources (VMs, images, firewall rules). "
+             "Use this to easily identify and clean up resources later. "
+             "Example: --label=my-deployment-123",
+        default=None,
+    )
+    
     args = parser.parse_args()
     
     # Validate paths
@@ -950,6 +1013,17 @@ if __name__ == "__main__":
     
     if args.num_servers < 1:
         parser.error("--num-servers must be at least 1")
+    
+    # Validate label format if provided
+    # GCP labels must: start with lowercase letter, contain only lowercase letters, numbers, underscores, dashes
+    # and be at most 63 characters
+    if args.label:
+        import re
+        if not re.match(r'^[a-z][a-z0-9_-]{0,62}$', args.label):
+            parser.error(
+                "--label must start with a lowercase letter and contain only lowercase letters, "
+                "numbers, underscores, and dashes (max 63 characters)"
+            )
 
     sys.exit(main(
         project=args.project,
@@ -970,4 +1044,5 @@ if __name__ == "__main__":
         output_path=args.output_path,
         machine_type_notarizer=args.machine_type_notarizer,
         machine_type=args.machine_type,
+        label=args.label,
     ))
