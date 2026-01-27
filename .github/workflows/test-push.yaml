@@ -1,0 +1,45 @@
+name: Test push image
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  VERSION: 0.0.0-testing-20260127112350
+
+
+jobs:
+  publish-services-images:
+      # No need for SLSA, so use the self-hosted runner
+      runs-on: fluorite-runner
+      timeout-minutes: 60
+      environment: release
+      # Wait for the newest gcp_notarizer_measurements to be uploaded by build-and-publish
+      needs: build-and-publish
+      steps:
+        - name: Setup Earthly
+          uses: earthly/actions-setup@v1
+          with:
+            version: v0.8.16
+
+        - name: Checkout
+          uses: actions/checkout@v4
+
+        - name: Docker Login
+          uses: azure/docker-login@v1
+          with:
+            login-server: mycr32671.azurecr.io
+            username: mycr32671
+            password: ${{ secrets.ACR_PASSWORD }}
+
+        - name: Build attestation-transparency-service and domain-monitor
+          run: |
+            VERSION="${{ github.event.release.tag_name }}"
+            VERSION_NO_V="${VERSION#v}"
+            curl "https://storage.googleapis.com/fluorite/$VERSION_NO_V/gcp-cvm-notarizer/gcp_notarizer_measurements.json" > libraries/attestation/gcp-shielded-vm-attestation/gcp_notarizer_measurements.json
+
+            earthly --push +attestation-transparency-service-image --TAG=$VERSION_NO_V
+            earthly --push +domain-monitor-image --TAG=$VERSION_NO_V
