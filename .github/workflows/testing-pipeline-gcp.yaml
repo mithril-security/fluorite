@@ -271,7 +271,7 @@ jobs:
             # Setup attestation-transparency
             CONTAINER_APP="${{ env.ATS_CONTAINER_APP_NAME }}"
             CONTAINER_APP_ENV="${{ env.ATS_CONTAINER_APP_ENVIRONMENT }}"
-            A_RECORD_NAME="ats.${{ env.JOB_NAME }}"
+            A_RECORD_NAME="ats.${{ github.run_id }}-${{ github.run_attempt }}-${{ env.JOB_NAME }}"
 
             # Assign attestation-transparency-service-identity to Container App
             # This is needed because the container needs permission to write to Azure Blob Storage
@@ -351,7 +351,7 @@ jobs:
         with:
           azcliversion: latest
           inlineScript: |
-            RESOURCE_GROUP="${{ env.RESOURCE_GROUP }}"            
+            RESOURCE_GROUP="${{ env.RESOURCE_GROUP }}"
             A_RECORD_NAME="${{ github.run_id }}-${{ github.run_attempt }}-${{ env.JOB_NAME }}"
             MASTER_IP=$(jq -r '.servers[0].address' ${{ env.DIR }}/cluster.json)
 
