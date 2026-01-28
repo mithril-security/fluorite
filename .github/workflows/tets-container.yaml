@@ -207,15 +207,6 @@ jobs:
           ingress: external
           targetPort: 8000
           disableTelemetry: true
-          environmentVariables: >
-            PORT="8000" 
-            ATTESTATION_BACKEND="${{ env.ATTESTATION_BACKEND }}"
-            OPERATOR_CERTIFICATE_B64="${{ env.OPERATOR_CERTIFICATE_B64 }}"
-            BUNDLE_HASH="${{ env.BUNDLE_HASH }}"
-            OS_MEASUREMENT="${{ env.OS_MEASUREMENT }}" 
-            STORAGE_URL="${{ env.BLOB_STORAGE_URL }}"
-            PLATFORM_MEASUREMENTS_PATH="${{ env.PLATFORM_MEASUREMENTS_PATH }}"
-            OS_DISK_URL="${{ env.OS_DISK_URL }}"
-            PROVISIONING_PACKAGE_URL="${{ env.PACKAGE_URL }}"
+          environmentVariables: "PORT=8000"
 
       
