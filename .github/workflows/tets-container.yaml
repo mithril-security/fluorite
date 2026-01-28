@@ -207,15 +207,23 @@ jobs:
           ingress: external
           targetPort: 8000
           disableTelemetry: true
-          environmentVariables: >
-            PORT="8000"
-            ATTESTATION_BACKEND="${{ env.ATTESTATION_BACKEND }}"
-            OPERATOR_CERTIFICATE_B64="${{ env.OPERATOR_CERTIFICATE_B64 }}"
-            BUNDLE_HASH="${{ env.BUNDLE_HASH }}"
-            OS_MEASUREMENT="${{ env.OS_MEASUREMENT }}" 
-            STORAGE_URL="${{ env.BLOB_STORAGE_URL }}"
-            PLATFORM_MEASUREMENTS_PATH="${{ env.PLATFORM_MEASUREMENTS_PATH }}"
-            OS_DISK_URL="${{ env.OS_DISK_URL }}"
-            PROVISIONING_PACKAGE_URL="${{ env.PACKAGE_URL }}"
-
       
+      - name: Set environment variables
+        if: matrix.include_ca == true
+        uses: azure/cli@v2
+        with:
+          azcliversion: latest
+          inlineScript: |
+            az containerapp update \
+              --name ${{ env.DOMAIN_MONITOR_CONTAINER_APP_NAME }} \
+              --resource-group ${{ env.RESOURCE_GROUP }} \
+              --set-env-vars \
+                PORT=8000 \
+                ATTESTATION_BACKEND="${{ env.ATTESTATION_BACKEND }}" \
+                OPERATOR_CERTIFICATE_B64="${{ env.OPERATOR_CERTIFICATE_B64 }}" \
+                BUNDLE_HASH="${{ env.BUNDLE_HASH }}" \
+                OS_MEASUREMENT="${{ env.OS_MEASUREMENT }}" \
+                STORAGE_URL="${{ env.BLOB_STORAGE_URL }}" \
+                PLATFORM_MEASUREMENTS_PATH="${{ env.PLATFORM_MEASUREMENTS_PATH }}" \
+                OS_DISK_URL="${{ env.OS_DISK_URL }}" \
+                PROVISIONING_PACKAGE_URL="${{ env.PACKAGE_URL }}"
