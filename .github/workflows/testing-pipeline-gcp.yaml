@@ -91,7 +91,7 @@ jobs:
           PACKAGE_URL="https://storage.googleapis.com/fluorite/${{ env.VERSION }}/packages/$PACKAGE_NAME"
           PACKAGE_PATH="${{ env.DIR }}/packages/$PACKAGE_NAME"
           
-          curl $PACKAGE_URL -o $PACKAGE_PATH
+          # curl $PACKAGE_URL -o $PACKAGE_PATH
 
           echo "PACKAGE_PATH=$PACKAGE_PATH" >> $GITHUB_ENV
 
@@ -230,32 +230,32 @@ jobs:
             yq -iy '.package.deploy.set.NODES = "2"' ${{ env.DEPLOYMENT_CONFIG_PATH }}
           fi
 
-      - name: Build and deploy Attestation Transparency Service Container App
-        if: matrix.include_ca == true
-        uses: azure/container-apps-deploy-action@v2
-        with:
-          acrName: mycr32671
-          imageToDeploy: mycr32671.azurecr.io/attestation-transparency-service:${{ env.VERSION }}
-          containerAppName: ${{ env.ATS_CONTAINER_APP_NAME }}
-          containerAppEnvironment: ${{ env.ATS_CONTAINER_APP_ENVIRONMENT }}
-          resourceGroup: ${{ env.RESOURCE_GROUP }}
-          location: francecentral
-          ingress: external
-          targetPort: 8000
-          disableTelemetry: true
-          environmentVariables: >
-            PORT="8000" 
-            ATTESTATION_BACKEND="${{ env.ATTESTATION_BACKEND }}" 
-            PASSWORD="${{ env.ATS_PASSWORD }}"
-            OPERATOR_CERTIFICATE_B64="${{ env.OPERATOR_CERTIFICATE_B64 }}"
-            BUNDLE_HASH="${{ env.BUNDLE_HASH }}" 
-            OS_MEASUREMENT="${{ env.OS_MEASUREMENT }}" 
-            RESOURCE_GROUP_NAME="${{ env.RESOURCE_GROUP }}"
-            ATTESTATION_STORAGE_ACCOUNT_NAME="attestationproofs"
-            STORAGE_URL="${{ env.BLOB_STORAGE_URL }}"
-            AZURE_SUBSCRIPTION_ID="${{ secrets.AZURE_SUBSCRIPTION_ID }}"
-            IDENTITY_RESOURCE_ID="/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ env.RESOURCE_GROUP }}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/attestation-transparency-service-identity"
-            PLATFORM_MEASUREMENTS_PATH="${{ env.PLATFORM_MEASUREMENTS_PATH }}"
+      # - name: Build and deploy Attestation Transparency Service Container App
+      #   if: matrix.include_ca == true
+      #   uses: azure/container-apps-deploy-action@v2
+      #   with:
+      #     acrName: mycr32671
+      #     imageToDeploy: mycr32671.azurecr.io/attestation-transparency-service:${{ env.VERSION }}
+      #     containerAppName: ${{ env.ATS_CONTAINER_APP_NAME }}
+      #     containerAppEnvironment: ${{ env.ATS_CONTAINER_APP_ENVIRONMENT }}
+      #     resourceGroup: ${{ env.RESOURCE_GROUP }}
+      #     location: francecentral
+      #     ingress: external
+      #     targetPort: 8000
+      #     disableTelemetry: true
+      #     environmentVariables: >
+      #       PORT="8000" 
+      #       ATTESTATION_BACKEND="${{ env.ATTESTATION_BACKEND }}" 
+      #       PASSWORD="${{ env.ATS_PASSWORD }}"
+      #       OPERATOR_CERTIFICATE_B64="${{ env.OPERATOR_CERTIFICATE_B64 }}"
+      #       BUNDLE_HASH="${{ env.BUNDLE_HASH }}" 
+      #       OS_MEASUREMENT="${{ env.OS_MEASUREMENT }}" 
+      #       RESOURCE_GROUP_NAME="${{ env.RESOURCE_GROUP }}"
+      #       ATTESTATION_STORAGE_ACCOUNT_NAME="attestationproofs"
+      #       STORAGE_URL="${{ env.BLOB_STORAGE_URL }}"
+      #       AZURE_SUBSCRIPTION_ID="${{ secrets.AZURE_SUBSCRIPTION_ID }}"
+      #       IDENTITY_RESOURCE_ID="/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ env.RESOURCE_GROUP }}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/attestation-transparency-service-identity"
+      #       PLATFORM_MEASUREMENTS_PATH="${{ env.PLATFORM_MEASUREMENTS_PATH }}"
 
       - name: Build and deploy domain-monitor Container App
         if: matrix.include_ca == true
