@@ -28,21 +28,21 @@ jobs:
           #   attestation_backend: GcpShieldedVM
           #   gpu: false
 
-          # - job_id: test-nginx
-          #   package: nginx
-          #   include_ca: true
-          #   zone: europe-west10-a
-          #   machine_type: n2-standard-8
-          #   attestation_backend: GcpShieldedVM
-          #   gpu: false
-
-          - job_id: test-ray-tl
-            package: ray-tl
+          - job_id: test-nginx
+            package: nginx
             include_ca: true
-            zone: us-central1-a
-            machine_type: a2-ultragpu-1g
+            zone: europe-west10-a
+            machine_type: n2-standard-8
             attestation_backend: GcpShieldedVM
-            gpu: true
+            gpu: false
+
+          # - job_id: test-ray-tl
+          #   package: ray-tl
+          #   include_ca: true
+          #   zone: us-central1-a
+          #   machine_type: a2-ultragpu-1g
+          #   attestation_backend: GcpShieldedVM
+          #   gpu: true
 
           # - job_id: test-ray
           #   package: ray
@@ -54,7 +54,7 @@ jobs:
 
     env:
       PACKAGE: ${{ matrix.package }}
-      JOB_NAME: ${{ matrix.job_id }}
+      JOB_NAME: gcp-${{ matrix.job_id }}
       GCP_ZONE: ${{ matrix.zone }}
       GCP_MACHINE_TYPE: ${{ matrix.machine_type }}
       ATTESTATION_BACKEND: ${{ matrix.attestation_backend }}
@@ -91,7 +91,7 @@ jobs:
           PACKAGE_URL="https://storage.googleapis.com/fluorite/${{ env.VERSION }}/packages/$PACKAGE_NAME"
           PACKAGE_PATH="${{ env.DIR }}/packages/$PACKAGE_NAME"
           
-          # curl $PACKAGE_URL -o $PACKAGE_PATH
+          curl $PACKAGE_URL -o $PACKAGE_PATH
 
           echo "PACKAGE_PATH=$PACKAGE_PATH" >> $GITHUB_ENV
 
@@ -234,7 +234,6 @@ jobs:
         if: matrix.include_ca == true
         uses: azure/container-apps-deploy-action@v2
         with:
-          acrName: mycr32671
           imageToDeploy: mycr32671.azurecr.io/attestation-transparency-service:${{ env.VERSION }}
           containerAppName: ${{ env.ATS_CONTAINER_APP_NAME }}
           containerAppEnvironment: ${{ env.ATS_CONTAINER_APP_ENVIRONMENT }}
@@ -243,25 +242,11 @@ jobs:
           ingress: external
           targetPort: 8000
           disableTelemetry: true
-          environmentVariables: >
-            PORT="8000" 
-            ATTESTATION_BACKEND="${{ env.ATTESTATION_BACKEND }}" 
-            PASSWORD="${{ env.ATS_PASSWORD }}"
-            OPERATOR_CERTIFICATE_B64="${{ env.OPERATOR_CERTIFICATE_B64 }}"
-            BUNDLE_HASH="${{ env.BUNDLE_HASH }}" 
-            OS_MEASUREMENT="${{ env.OS_MEASUREMENT }}" 
-            RESOURCE_GROUP_NAME="${{ env.RESOURCE_GROUP }}"
-            ATTESTATION_STORAGE_ACCOUNT_NAME="attestationproofs"
-            STORAGE_URL="${{ env.BLOB_STORAGE_URL }}"
-            AZURE_SUBSCRIPTION_ID="${{ secrets.AZURE_SUBSCRIPTION_ID }}"
-            IDENTITY_RESOURCE_ID="/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ env.RESOURCE_GROUP }}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/attestation-transparency-service-identity"
-            PLATFORM_MEASUREMENTS_PATH="${{ env.PLATFORM_MEASUREMENTS_PATH }}"
 
       - name: Build and deploy domain-monitor Container App
         if: matrix.include_ca == true
         uses: azure/container-apps-deploy-action@v2
         with:
-          acrName: mycr32671
           imageToDeploy: mycr32671.azurecr.io/domain-monitor:${{ env.VERSION }}
           containerAppName: ${{ env.DOMAIN_MONITOR_CONTAINER_APP_NAME }}
           containerAppEnvironment: ${{ env.DOMAIN_MONITOR_CONTAINER_APP_ENVIRONMENT }}
@@ -270,16 +255,6 @@ jobs:
           ingress: external
           targetPort: 8000
           disableTelemetry: true
-          environmentVariables: >
-            PORT="8000" 
-            ATTESTATION_BACKEND="${{ env.ATTESTATION_BACKEND }}"
-            OPERATOR_CERTIFICATE_B64="${{ env.OPERATOR_CERTIFICATE_B64 }}"
-            BUNDLE_HASH="${{ env.BUNDLE_HASH }}"
-            OS_MEASUREMENT="${{ env.OS_MEASUREMENT }}" 
-            STORAGE_URL="${{ env.BLOB_STORAGE_URL }}"
-            PLATFORM_MEASUREMENTS_PATH="${{ env.PLATFORM_MEASUREMENTS_PATH }}"
-            OS_DISK_URL="${{ env.OS_DISK_URL }}"
-            PROVISIONING_PACKAGE_URL="${{ env.PACKAGE_URL }}"
 
       - name: Setup attestation-transparency and domain-monitor services
         if: matrix.include_ca == true
@@ -296,7 +271,7 @@ jobs:
             # Setup attestation-transparency
             CONTAINER_APP="${{ env.ATS_CONTAINER_APP_NAME }}"
             CONTAINER_APP_ENV="${{ env.ATS_CONTAINER_APP_ENVIRONMENT }}"
-            A_RECORD_NAME="ats.${{ github.run_id }}-${{ github.run_attempt }}-${{ env.JOB_NAME }}"
+            A_RECORD_NAME="ats.${{ env.JOB_NAME }}"
 
             # Assign attestation-transparency-service-identity to Container App
             # This is needed because the container needs permission to write to Azure Blob Storage
@@ -305,14 +280,50 @@ jobs:
               --resource-group $RESOURCE_GROUP \
               --user-assigned attestation-transparency-service-identity
 
-            ./scripts/setup-containerapp.sh $RESOURCE_GROUP $CONTAINER_APP $CONTAINER_APP_ENV $ZONE_NAME $A_RECORD_NAME &
+            # Set environment variables
+
+            # Set environment variables
+            az containerapp update \
+              --name $CONTAINER_APP \
+              --resource-group $RESOURCE_GROUP \
+              --set-env-vars \
+              PORT="8000" \
+              ATTESTATION_BACKEND="${{ env.ATTESTATION_BACKEND }}" \
+              PASSWORD="${{ env.ATS_PASSWORD }}" \
+              OPERATOR_CERTIFICATE_B64="${{ env.OPERATOR_CERTIFICATE_B64 }}" \
+              BUNDLE_HASH="${{ env.BUNDLE_HASH }}" \
+              OS_MEASUREMENT="${{ env.OS_MEASUREMENT }}" \
+              RESOURCE_GROUP_NAME="${{ env.RESOURCE_GROUP }}" \
+              ATTESTATION_STORAGE_ACCOUNT_NAME="attestationproofs" \
+              STORAGE_URL="${{ env.BLOB_STORAGE_URL }}" \
+              AZURE_SUBSCRIPTION_ID="${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
+              IDENTITY_RESOURCE_ID="/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${{ env.RESOURCE_GROUP }}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/attestation-transparency-service-identity" \
+              PLATFORM_MEASUREMENTS_PATH="${{ env.PLATFORM_MEASUREMENTS_PATH }}" 
+
+            ./scripts/setup-containerapp.sh $RESOURCE_GROUP $CONTAINER_APP $CONTAINER_APP_ENV $ZONE_NAME $A_RECORD_NAME & 
 
             # Setup domain-monitor
             CONTAINER_APP="${{ env.DOMAIN_MONITOR_CONTAINER_APP_NAME }}"
             CONTAINER_APP_ENV="${{ env.DOMAIN_MONITOR_CONTAINER_APP_ENVIRONMENT }}"
-            A_RECORD_NAME="domainmonitor.${{ github.run_id }}-${{ github.run_attempt }}-${{ env.JOB_NAME }}"
+            A_RECORD_NAME="domainmonitor.${{ env.JOB_NAME }}"
 
-            ./scripts/setup-containerapp.sh $RESOURCE_GROUP $CONTAINER_APP $CONTAINER_APP_ENV $ZONE_NAME $A_RECORD_NAME &
+            # Set environment variables
+            az containerapp update \
+              --name $CONTAINER_APP \
+              --resource-group $RESOURCE_GROUP \
+              --set-env-vars \
+              PORT="8000" \
+              ATTESTATION_BACKEND="${{ env.ATTESTATION_BACKEND }}" \
+              OPERATOR_CERTIFICATE_B64="${{ env.OPERATOR_CERTIFICATE_B64 }}" \
+              BUNDLE_HASH="${{ env.BUNDLE_HASH }}" \
+              OS_MEASUREMENT="${{ env.OS_MEASUREMENT }}" \
+              STORAGE_URL="${{ env.BLOB_STORAGE_URL }}" \
+              PLATFORM_MEASUREMENTS_PATH="${{ env.PLATFORM_MEASUREMENTS_PATH }}" \
+              OS_DISK_URL="${{ env.OS_DISK_URL }}" \
+              PROVISIONING_PACKAGE_URL="${{ env.PACKAGE_URL }}" 
+              
+
+            ./scripts/setup-containerapp.sh $RESOURCE_GROUP $CONTAINER_APP $CONTAINER_APP_ENV $ZONE_NAME $A_RECORD_NAME & 
 
             wait
 
