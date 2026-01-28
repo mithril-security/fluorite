@@ -39,7 +39,7 @@ jobs:
           - job_id: test-ray-tl
             package: ray-tl
             include_ca: true
-            zone: us-central1-c
+            zone: us-central1-a
             machine_type: a2-ultragpu-1g
             attestation_backend: GcpShieldedVM
             gpu: true
@@ -91,7 +91,7 @@ jobs:
           PACKAGE_URL="https://storage.googleapis.com/fluorite/${{ env.VERSION }}/packages/$PACKAGE_NAME"
           PACKAGE_PATH="${{ env.DIR }}/packages/$PACKAGE_NAME"
           
-          curl $PACKAGE_URL -o $PACKAGE_PATH
+          # curl $PACKAGE_URL -o $PACKAGE_PATH
 
           echo "PACKAGE_PATH=$PACKAGE_PATH" >> $GITHUB_ENV
 
@@ -234,6 +234,7 @@ jobs:
         if: matrix.include_ca == true
         uses: azure/container-apps-deploy-action@v2
         with:
+          acrName: mycr32671
           imageToDeploy: mycr32671.azurecr.io/attestation-transparency-service:${{ env.VERSION }}
           containerAppName: ${{ env.ATS_CONTAINER_APP_NAME }}
           containerAppEnvironment: ${{ env.ATS_CONTAINER_APP_ENVIRONMENT }}
@@ -260,6 +261,7 @@ jobs:
         if: matrix.include_ca == true
         uses: azure/container-apps-deploy-action@v2
         with:
+          acrName: mycr32671
           imageToDeploy: mycr32671.azurecr.io/domain-monitor:${{ env.VERSION }}
           containerAppName: ${{ env.DOMAIN_MONITOR_CONTAINER_APP_NAME }}
           containerAppEnvironment: ${{ env.DOMAIN_MONITOR_CONTAINER_APP_ENVIRONMENT }}
