@@ -80,14 +80,14 @@ rust-builder:
         libclang-dev \
         libxmlsec1-openssl
     
-    # Hardcode toolchain to nightly-2025-12-26-x86_64-unknown-linux-gnu
+    # Hardcode toolchain to nightly-2026-01-26-x86_64-unknown-linux-gnu
     RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
-        sh -s -- -y --default-toolchain nightly-2025-12-26-x86_64-unknown-linux-gnu --profile minimal
+        sh -s -- -y --default-toolchain nightly-2026-01-26-x86_64-unknown-linux-gnu --profile minimal
 
     # Add Rust binaries to PATH
     ENV PATH="/root/.cargo/bin:$PATH"
 
-    RUN rustup toolchain install nightly-2025-12-26-x86_64-unknown-linux-gnu --profile minimal
+    RUN rustup toolchain install nightly-2026-01-26-x86_64-unknown-linux-gnu --profile minimal
 
 
 multinode-provisioning-server:
