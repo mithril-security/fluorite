@@ -201,12 +201,12 @@ jobs:
         with:
           imageToDeploy: mycr32671.azurecr.io/domain-monitor:${{ env.VERSION }}
           containerAppName: ${{ env.DOMAIN_MONITOR_CONTAINER_APP_NAME }}
-          containerAppEnvironment: ${{ env.DOMAIN_MONITOR_CONTAINER_APP_ENVIRONMENT }}
           resourceGroup: ${{ env.RESOURCE_GROUP }}
           location: francecentral
           ingress: external
           targetPort: 8000
           disableTelemetry: true
-          environmentVariables: "PORT=8000"
+          environmentVariables: >
+            PORT=8000
 
       
