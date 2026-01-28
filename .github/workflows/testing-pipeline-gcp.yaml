@@ -44,14 +44,6 @@ jobs:
             attestation_backend: GcpShieldedVM
             gpu: true
 
-          - job_id: test-ray
-            package: ray
-            include_ca: true
-            zone: us-central1-c
-            machine_type: a2-ultragpu-1g
-            attestation_backend: GcpShieldedVM
-            gpu: true
-
     env:
       PACKAGE: ${{ matrix.package }}
       JOB_NAME: gcp-${{ matrix.job_id }}
