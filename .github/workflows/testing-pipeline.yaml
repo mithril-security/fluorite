@@ -69,11 +69,11 @@ jobs:
       - name: Get provisioning bundle
         run: |
           mkdir ${{ env.DIR }}/packages
-          
+
           PACKAGE_NAME="zarf-package-${{ env.PACKAGE }}-amd64-1.0.0.tar.zst"
           PACKAGE_URL="https://storage.googleapis.com/fluorite/${{ env.VERSION }}/packages/$PACKAGE_NAME"
           PACKAGE_PATH="${{ env.DIR }}/packages/$PACKAGE_NAME"
-          
+
           curl $PACKAGE_URL -o $PACKAGE_PATH
 
           echo "PACKAGE_PATH=$PACKAGE_PATH" >> $GITHUB_ENV
@@ -83,26 +83,19 @@ jobs:
           echo "BUNDLE_HASH=$BUNDLE_HASH" >> $GITHUB_ENV
 
           echo "PACKAGE_URL=$PACKAGE_URL" >> $GITHUB_ENV
-          
+
       - name: Get pre-built binaries
         run: |
           mkdir -p ${{ env.DIR }}/binaries
           curl https://storage.googleapis.com/fluorite/${{ env.VERSION }}/binaries/client -o ${{ env.DIR }}/binaries/client
           curl https://storage.googleapis.com/fluorite/${{ env.VERSION }}/binaries/generate-certificates-cli -o ${{ env.DIR }}/binaries/generate-certificates-cli
           curl https://storage.googleapis.com/fluorite/${{ env.VERSION }}/binaries/operator-cli -o ${{ env.DIR }}/binaries/operator-cli
-          
+
           chmod +x ${{ env.DIR }}/binaries/*
 
       - name: Generate Operator Certificates
         run: |
           ${{ env.DIR }}/binaries/generate-certificates-cli --force --cert-directory-path ${{ env.DIR }}/certificates
-
-      - name: Azure login
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
@@ -113,7 +106,7 @@ jobs:
         run: |
 
           VERSION_FORMATTED="${VERSION//./-}"
-          
+
           if [ "${{ matrix.gpu }}" = "false" ]; then
             echo "AZURE_IMAGE=${{ env.AZURE_GALLERY_ID }}/fluorite-os-${VERSION_FORMATTED}/versions/1.0.0" >> $GITHUB_ENV
             MEASUREMENT_URL="https://storage.googleapis.com/fluorite/${{ env.VERSION }}/fluorite-os/cloud-vtpm/os-measurement.json"
@@ -192,6 +185,13 @@ jobs:
             # NODES: 2. We have 1 control plane node and one agent node
             yq -iy '.package.deploy.set.NODES = "2"' ${{ env.DEPLOYMENT_CONFIG_PATH }}
           fi
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Build and deploy Attestation Transparency Service Container App
         if: matrix.include_ca == true
@@ -284,11 +284,19 @@ jobs:
               PLATFORM_MEASUREMENTS_PATH="${{ env.PLATFORM_MEASUREMENTS_PATH }}" \
               OS_DISK_URL="${{ env.OS_DISK_URL }}" \
               PROVISIONING_PACKAGE_URL="${{ env.PACKAGE_URL }}" 
-              
 
             ./scripts/setup-containerapp.sh $RESOURCE_GROUP $CONTAINER_APP $CONTAINER_APP_ENV $ZONE_NAME $A_RECORD_NAME & 
 
             wait
+
+      # It can happen that authentication expires at this point because the previous steps take around 10 minutes
+      # So refresh the token by logging-in again
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Spawn VMs for test
         working-directory: operator/vm-cli/
