@@ -235,7 +235,7 @@ jobs:
         uses: azure/container-apps-deploy-action@v2
         with:
           acrName: mycr32671
-          imageToDeploy: attestation-transparency-service:${{ env.VERSION }}
+          imageToDeploy: mycr32671.azurecr.io/attestation-transparency-service:${{ env.VERSION }}
           containerAppName: ${{ env.ATS_CONTAINER_APP_NAME }}
           containerAppEnvironment: ${{ env.ATS_CONTAINER_APP_ENVIRONMENT }}
           resourceGroup: ${{ env.RESOURCE_GROUP }}
@@ -262,7 +262,7 @@ jobs:
         uses: azure/container-apps-deploy-action@v2
         with:
           acrName: mycr32671
-          imageToDeploy: domain-monitor:${{ env.VERSION }}
+          imageToDeploy: mycr32671.azurecr.io/domain-monitor:${{ env.VERSION }}
           containerAppName: ${{ env.DOMAIN_MONITOR_CONTAINER_APP_NAME }}
           containerAppEnvironment: ${{ env.DOMAIN_MONITOR_CONTAINER_APP_ENVIRONMENT }}
           resourceGroup: ${{ env.RESOURCE_GROUP }}
