@@ -747,7 +747,7 @@ gcp-notarizer-os:
     RUN jq -n \
         --slurpfile pcr_data measurements/measurements_gcp_cvm.json \
         --slurpfile os_data os-measurement.json \
-        '{golden_pcr_data: $pcr_data[0], expected_os_image_measurement: $os_data[0].fluoriteos_pcr4}' \
+        '{golden_pcr_data: $pcr_data[0][0], expected_os_image_measurement: $os_data[0].fluoriteos_pcr4}' \
         > gcp_notarizer_measurements.json
 
     SAVE ARTIFACT gcp_notarizer_measurements.json AS LOCAL libraries/attestation/gcp-shielded-vm-attestation/gcp_notarizer_measurements.json
