@@ -54,7 +54,7 @@ jobs:
 
     env:
       PACKAGE: ${{ matrix.package }}
-      JOB_NAME: ${{ matrix.job_id }}
+      JOB_NAME: gcp-${{ matrix.job_id }}
       GCP_ZONE: ${{ matrix.zone }}
       GCP_MACHINE_TYPE: ${{ matrix.machine_type }}
       ATTESTATION_BACKEND: ${{ matrix.attestation_backend }}
