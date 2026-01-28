@@ -29,7 +29,7 @@ pub fn get_artifacts(
 
         let provenance_path = provenance_path
             .clone()
-            .ok_or(anyhow!("The provenance path is empty!"))?;
+            .ok_or(anyhow!("The provenance path is empty! Add it with --provenance-path."))?;
 
         if !provenance_path.is_file() {
             return Err(anyhow::format_err!(

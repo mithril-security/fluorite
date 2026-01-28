@@ -95,7 +95,7 @@ pub fn get_and_verify_artifact(
 
         let provenance_path = provenance_path
             .clone()
-            .ok_or(anyhow!("The provenance path is empty!"))?;
+            .ok_or(anyhow!("The provenance path is empty! Add it with --provenance-path."))?;
         let slsa_verifier_path = slsa_verifier_path
             .clone()
             .ok_or(anyhow!("The slsa verifier path is empty!"))?;
