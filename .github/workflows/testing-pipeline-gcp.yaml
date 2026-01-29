@@ -8,7 +8,7 @@ permissions:
   contents: read
 
 env:
-  VERSION: 0.0.0-testing-20260127112350
+  VERSION: 0.0.0-testing-20260128173521
   ZONE_NAME: test.mithrilsecurity.io
 
 jobs:
