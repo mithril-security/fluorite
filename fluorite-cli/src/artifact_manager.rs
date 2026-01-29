@@ -97,6 +97,20 @@ pub fn get_artifacts(
     get_and_verify_artifact(
         url,
         &os_disk,
+        slsa_verifier_path.clone(),
+        provenance_path.clone(),
+        source_uri,
+        insecure_skip_verify,
+    )?;
+
+    let measurement_file = PathBuf::from("./fluorite-os/baremetal-amd-sev/os-measurement.json");
+    let url = bucket_base_url
+        .join("os-measurement.json")
+        .context("Error joining bucket_base_url with the image path")?;
+
+    get_and_verify_artifact(
+        url,
+        &measurement_file,
         slsa_verifier_path,
         provenance_path,
         source_uri,
