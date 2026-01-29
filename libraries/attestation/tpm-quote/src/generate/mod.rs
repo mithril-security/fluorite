@@ -6,7 +6,7 @@
 //! use tss_esapi::structures::PcrSelectionList;
 //! use tss_esapi::interface_types::algorithm::HashingAlgorithm;
 //! use tss_esapi::structures::PcrSlot;
-//! 
+//!
 //!
 //! # fn generate_quote_example() -> anyhow::Result<()> {
 //! let mut tpm_ctx = tpm_context()?;
@@ -38,8 +38,8 @@ use tss_esapi::abstraction::pcr::{self};
 use tss_esapi::handles::{KeyHandle, NvIndexTpmHandle, TpmHandle};
 use tss_esapi::interface_types::resource_handles::Hierarchy;
 use tss_esapi::interface_types::resource_handles::NvAuth;
-use tss_esapi::structures::{Data, SignatureScheme};
 use tss_esapi::structures::PcrSelectionList;
+use tss_esapi::structures::{Data, SignatureScheme};
 use tss_esapi::tcti_ldr::{DeviceConfig, TctiNameConf};
 use tss_esapi::traits::{Marshall, UnMarshall};
 

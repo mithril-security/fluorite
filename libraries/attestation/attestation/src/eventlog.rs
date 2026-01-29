@@ -1,8 +1,8 @@
-use anyhow::{Context, bail};
+use anyhow::{bail, Context};
 use digest::{Digest, Output};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde_with::{serde_as, IfIsHumanReadable};
 use std::{marker::PhantomData, ops::Deref};
-use serde_with::{IfIsHumanReadable, serde_as};
 
 pub trait Event: Serialize + DeserializeOwned + Clone {}
 

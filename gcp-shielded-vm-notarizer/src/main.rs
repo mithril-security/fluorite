@@ -19,13 +19,16 @@
 
 use anyhow::{Context, anyhow};
 use api::AppState;
-use axum::{Router, routing::{get, post}};
+use axum::{
+    Router,
+    routing::{get, post},
+};
 use axum_server::tls_rustls::RustlsConfig;
 use clap::Parser;
 use log::info;
 use rustls::ServerConfig;
-use rustls_pki_types::pem::PemObject;
 use rustls_pki_types::CertificateDer;
+use rustls_pki_types::pem::PemObject;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tower_http::trace::TraceLayer;
@@ -122,8 +125,8 @@ async fn main() -> anyhow::Result<()> {
         .await
         .context("Failed to fetch creator certificate from metadata. Make sure 'creator-certificate' attribute is set.")?;
 
-    let creator_cert_der = pem_to_der(&creator_cert_pem)
-        .context("Failed to parse creator certificate")?;
+    let creator_cert_der =
+        pem_to_der(&creator_cert_pem).context("Failed to parse creator certificate")?;
 
     info!("Creator certificate loaded successfully");
 
@@ -164,10 +167,8 @@ async fn main() -> anyhow::Result<()> {
         .context("Error while generating self-signed ephemeral cert")?;
 
     // Create client certificate verifier that requires the creator certificate
-    let client_cert_verifier = CreatorCertificateVerifier::new(
-        creator_cert_der,
-        rustls::crypto::ring::default_provider(),
-    );
+    let client_cert_verifier =
+        CreatorCertificateVerifier::new(creator_cert_der, rustls::crypto::ring::default_provider());
 
     // Create TLS config with client cert verification
     let tls_config = ServerConfig::builder_with_protocol_versions(&[&rustls::version::TLS13])
@@ -185,7 +186,10 @@ async fn main() -> anyhow::Result<()> {
 
     let rustls_config = RustlsConfig::from_config(Arc::new(tls_config));
 
-    info!("Listening on {} (TLS with client certificate authentication)", args.listen);
+    info!(
+        "Listening on {} (TLS with client certificate authentication)",
+        args.listen
+    );
 
     let server = axum_server::bind_rustls(args.listen, rustls_config);
     server.serve(app.into_make_service()).await?;

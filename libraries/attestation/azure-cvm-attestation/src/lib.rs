@@ -23,8 +23,7 @@ mod test {
     use tss_esapi::{interface_types::algorithm::HashingAlgorithm, structures::PcrSelectionList};
 
     use crate::{
-        common::ConfidentialVmAttestationDocument,
-        generate::AzureCvmAttestationDocumentGenerator,
+        common::ConfidentialVmAttestationDocument, generate::AzureCvmAttestationDocumentGenerator,
         vtpm::ALL_SLOTS,
     };
     use env_logger::Env;

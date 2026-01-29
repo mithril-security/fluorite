@@ -10,7 +10,7 @@ use log::info;
 use serde::{Deserialize, Serialize};
 
 use crate::attestation::{
-    NotarizerAttestation, NotarizerState, NotarizedShieldedVmIdentityPayload,
+    NotarizedShieldedVmIdentityPayload, NotarizerAttestation, NotarizerState,
 };
 use crate::gcp_api::get_shielded_vm_identity;
 use crate::web_error::AppError;
@@ -44,7 +44,6 @@ pub struct NotarizeRequest {
     /// Instance name
     pub instance: String,
 }
-
 
 /// Response containing the notarized identity and notarizer attestation
 #[derive(Debug, Serialize)]

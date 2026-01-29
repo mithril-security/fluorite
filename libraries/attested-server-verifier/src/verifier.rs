@@ -130,12 +130,16 @@ pub fn make_node_policy(
             )
         );
 
-        if !expected_platform_measurements.expected_pcr_data.iter().any(|expected_pcr_data|{
-            expected_pcr_data.is_subset(pcr_data)
-        }) {
-            bail!("None of the expected platform measurements was a subset of the pcr_data from the enclave. \nExpected:\n{} \nGot:\n{}\n", serde_json::to_string_pretty(&expected_platform_measurements)?,
-                serde_json::to_string_pretty(&pcr_data)?)
-
+        if !expected_platform_measurements
+            .expected_pcr_data
+            .iter()
+            .any(|expected_pcr_data| expected_pcr_data.is_subset(pcr_data))
+        {
+            bail!(
+                "None of the expected platform measurements was a subset of the pcr_data from the enclave. \nExpected:\n{} \nGot:\n{}\n",
+                serde_json::to_string_pretty(&expected_platform_measurements)?,
+                serde_json::to_string_pretty(&pcr_data)?
+            )
         }
 
         Ok(())
@@ -635,18 +639,22 @@ impl ServerCertVerifier for AttestedTlsServerVerifier {
     }
 }
 
-
 #[cfg(test)]
 mod test {
     use std::{fs::read_to_string, sync::Arc};
 
     use attestation::cbor;
     use base64::{Engine, prelude::BASE64_STANDARD};
-    use provisioning_structs::structs::{AttestationBackend, ClusterAttestationResponse, PlatformMeasurements};
+    use provisioning_structs::structs::{
+        AttestationBackend, ClusterAttestationResponse, PlatformMeasurements,
+    };
 
-    use crate::verifier::{attestation_validator_after_provisioning, make_cluster_policy, make_multinode_policy, make_node_policy, PcrData};
-    use provisioning_structs::structs::ClusterAttestation;
+    use crate::verifier::{
+        PcrData, attestation_validator_after_provisioning, make_cluster_policy,
+        make_multinode_policy, make_node_policy,
+    };
     use env_logger::Env;
+    use provisioning_structs::structs::ClusterAttestation;
     #[cfg(test)]
     pub(crate) fn init_logger_tests() {
         // Will fail if called more than once, but I don't care about that type of error so i can just discard it.
@@ -654,24 +662,29 @@ mod test {
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn test_verify() -> anyhow::Result<()>{
+    async fn test_verify() -> anyhow::Result<()> {
         init_logger_tests();
 
         let operator_cert = read_to_string("./test_data/cert.pem")?;
-        let provisioning_bundle_hash = "56dd31d27e890097e3c94f09d018944a9bd8abc8377d17e2ad0cf7ffb1bc391c";
+        let provisioning_bundle_hash =
+            "56dd31d27e890097e3c94f09d018944a9bd8abc8377d17e2ad0cf7ffb1bc391c";
         let attestation_backend = AttestationBackend::AzureConfidentialVM;
-        let os_measurement_vec = vec![177, 51, 25, 124, 45, 151, 253, 237, 37, 169, 55, 79, 190, 203, 203, 147, 95, 183, 231, 207, 156, 124, 110, 189, 8, 132, 231, 107, 190, 154, 200, 54];
+        let os_measurement_vec = vec![
+            177, 51, 25, 124, 45, 151, 253, 237, 37, 169, 55, 79, 190, 203, 203, 147, 95, 183, 231,
+            207, 156, 124, 110, 189, 8, 132, 231, 107, 190, 154, 200, 54,
+        ];
         let platform_measurements_str = read_to_string("./test_data/measurements_azure.json")?;
-        let platform_measurements: PlatformMeasurements = serde_json::from_str(&platform_measurements_str)?;
+        let platform_measurements: PlatformMeasurements =
+            serde_json::from_str(&platform_measurements_str)?;
         let attestation_b64 = read_to_string("./test_data/cluster_attestation.b64")?;
 
-        let attestation_bytes = BASE64_STANDARD.decode(attestation_b64)?;        
+        let attestation_bytes = BASE64_STANDARD.decode(attestation_b64)?;
         let cluster_attestation: ClusterAttestation = cbor::from_slice(&attestation_bytes)?;
-        
+
         let _cluster_info = attestation_validator_after_provisioning(
             Arc::new(make_cluster_policy(
                 &operator_cert,
-                provisioning_bundle_hash
+                provisioning_bundle_hash,
             )),
             Arc::new(make_node_policy(
                 platform_measurements,

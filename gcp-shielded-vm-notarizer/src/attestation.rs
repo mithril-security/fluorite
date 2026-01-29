@@ -4,13 +4,13 @@
 //! that proves the notarizer is running on genuine confidential computing hardware.
 
 use anyhow::Context;
-use attestation::eventlog::{Event, EventLog, LiveEventLog};
-use attestation::msg::{MessageKeyPair, MessageVerifyingKey, MsgEnum, SignedMessage, Msg};
 use attestation::AsyncGenerateAttestationDocument;
+use attestation::eventlog::{Event, EventLog, LiveEventLog};
+use attestation::msg::{MessageKeyPair, MessageVerifyingKey, Msg, MsgEnum, SignedMessage};
 use derive_more::{From, TryInto};
 use gcp_cvm_attestation::{
-    CvmAttestationDocument, CvmAttestationDocumentGenerator,
-    PcrSelectionList, PcrSlot, TssHashingAlgorithm,
+    CvmAttestationDocument, CvmAttestationDocumentGenerator, PcrSelectionList, PcrSlot,
+    TssHashingAlgorithm,
 };
 use log::info;
 use serde::{Deserialize, Serialize};
@@ -58,7 +58,7 @@ const ALL_SLOTS: &[PcrSlot; 24] = &[
 #[derive(Serialize, Deserialize, Clone, Debug, From, TryInto)]
 pub enum NotarizerEvent {
     /// Logged at startup with the signing public key
-    NotarizerStarted(NotarizerStartedEvent)
+    NotarizerStarted(NotarizerStartedEvent),
 }
 
 impl Event for NotarizerEvent {}

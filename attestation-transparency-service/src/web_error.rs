@@ -18,10 +18,6 @@ impl IntoResponse for AppError {
     fn into_response(self) -> Response {
         let err = format!("Something went wrong: {:?}", self.0);
         log::error!("{}", err);
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            err,
-        )
-            .into_response()
+        (StatusCode::INTERNAL_SERVER_ERROR, err).into_response()
     }
 }

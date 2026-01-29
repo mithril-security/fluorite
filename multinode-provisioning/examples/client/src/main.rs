@@ -2,19 +2,18 @@
 
 use anyhow::{Context, ensure};
 use attested_server_verifier::verifier::{
-    make_cluster_policy, make_node_policy, make_webserver_attestation_validator_for_cluster, AttestedTlsServerVerifier
+    AttestedTlsServerVerifier, make_cluster_policy, make_node_policy,
+    make_webserver_attestation_validator_for_cluster,
 };
 use clap::Parser;
 use log::info;
-use provisioning_structs::structs::{
-    AttestationBackend, parse_cli_measurements};
+use provisioning_structs::structs::{AttestationBackend, parse_cli_measurements};
 use rustls::ClientConfig;
 use std::fs;
 use std::path::Path;
+use std::path::PathBuf;
 use std::sync::Arc;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-use std::path::PathBuf;
-
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -46,7 +45,6 @@ struct Args {
     /// The attestation backend to use to verify the attestation received from the enclave
     #[arg(long)]
     attestation_backend: AttestationBackend,
-
 }
 
 #[tokio::main]
@@ -77,9 +75,14 @@ async fn main() -> anyhow::Result<()> {
 
     info!("Connecting to cluster");
 
-    let (platform_measurements,os_measurement_vec) = parse_cli_measurements(args.platform_measurements_path, args.os_measurement)?;
+    let (platform_measurements, os_measurement_vec) =
+        parse_cli_measurements(args.platform_measurements_path, args.os_measurement)?;
 
-    let node_policy = make_node_policy(platform_measurements, os_measurement_vec, args.attestation_backend);
+    let node_policy = make_node_policy(
+        platform_measurements,
+        os_measurement_vec,
+        args.attestation_backend,
+    );
 
     // Cluster policy:
     // - The cluster operator has OPERATOR_CERTIFICATE

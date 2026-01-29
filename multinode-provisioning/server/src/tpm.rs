@@ -1,4 +1,4 @@
-use anyhow::{bail, Context};
+use anyhow::{Context, bail};
 use attestation::AsyncGenerateAttestationDocument as _;
 use azure_cvm_attestation::AzureCvmAttestationDocumentGenerator;
 use azure_trusted_launch_attestation::TrustedLaunchVmAttestationDocumentGenerator;
@@ -6,7 +6,7 @@ use gcp_shielded_vm_attestation::ShieldedVmAttestationDocumentGenerator;
 use provisioning_structs::structs::{AttestationBackend, NodeAttestationDocument};
 use qemu_attestation::QEMUVmAttestationDocumentGenerator;
 use svsm_sev_attestation::SvsmVtpmAttestationDocumentGenerator;
-use tpm_quote::generate::{tpm_context, AttestationKeyHandle};
+use tpm_quote::generate::{AttestationKeyHandle, tpm_context};
 use tss_esapi::handles::TpmHandle;
 use tss_esapi::interface_types::algorithm::HashingAlgorithm;
 use tss_esapi::structures::{PcrSelectionList, PcrSlot};
@@ -93,7 +93,8 @@ async fn gcp_shielded_vm_get_attestation_document() -> anyhow::Result<NodeAttest
         .build()?;
 
     Ok(NodeAttestationDocument::GcpShieldedVmAttestationDocument(
-        ShieldedVmAttestationDocumentGenerator::new_with_default().await?
+        ShieldedVmAttestationDocumentGenerator::new_with_default()
+            .await?
             .generate_attestation_document(&pcr_selection_list)
             .await?,
     ))

@@ -554,7 +554,7 @@ pub async fn provision_cluster(
             "Network error trying to send POST request to {}",
             post_provision_cluster_endpoint
         ))?;
-    
+
     if !response_provision_cluster.status().is_success() {
         let status = response_provision_cluster.status();
         let error_text = response_provision_cluster
@@ -580,7 +580,7 @@ pub async fn provision_cluster(
     );
 
     let provisioning_bundle_hash = try_digest(zarf_package_path)?;
-    
+
     let get_cluster_status_endpoint = format!(
         "https://{}:{}/cluster_status",
         master.address, PROTOCOL_PORT

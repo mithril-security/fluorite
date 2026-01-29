@@ -54,10 +54,7 @@ enum Commands {
 
         /// Path to the OS disk image file
         /// earthly --strict -P +fluorite-os --nvidiaDriver=true --snpBareMetal=true --outputDir=fluorite-os/baremetal-amd-sev/
-        #[clap(
-            long,
-            default_value = "./fluorite-os/baremetal-amd-sev/disk.raw"
-        )]
+        #[clap(long, default_value = "./fluorite-os/baremetal-amd-sev/disk.raw")]
         disk_path: PathBuf,
 
         /// Path to the user-data file used by cloud-init.

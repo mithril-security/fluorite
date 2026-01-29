@@ -114,11 +114,7 @@ pub async fn get_shielded_instance_identity(
             .await
             .unwrap_or_else(|_| "Failed to read error body".to_string());
 
-        bail!(
-            "GCP API returned error status {}: {}",
-            status,
-            error_body
-        );
+        bail!("GCP API returned error status {}: {}", status, error_body);
     }
 
     let identity: ShieldedInstanceIdentity = response
@@ -167,7 +163,10 @@ mod tests {
         let identity: ShieldedInstanceIdentity =
             serde_json::from_str(json).expect("Failed to deserialize");
 
-        assert_eq!(identity.kind, Some("compute#shieldedInstanceIdentity".to_string()));
+        assert_eq!(
+            identity.kind,
+            Some("compute#shieldedInstanceIdentity".to_string())
+        );
         assert!(identity.signing_key.is_some());
         assert!(identity.encryption_key.is_some());
         assert!(identity.ecc_p256_signing_key.is_some());

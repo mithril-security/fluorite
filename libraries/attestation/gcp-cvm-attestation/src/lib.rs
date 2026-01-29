@@ -16,8 +16,8 @@ pub use generate::*;
 
 // Re-export tss-esapi types needed for generating attestation documents
 #[cfg(feature = "generate")]
+pub use tss_esapi::interface_types::algorithm::HashingAlgorithm as TssHashingAlgorithm;
+#[cfg(feature = "generate")]
 pub use tss_esapi::structures::PcrSelectionList;
 #[cfg(feature = "generate")]
 pub use tss_esapi::structures::PcrSlot;
-#[cfg(feature = "generate")]
-pub use tss_esapi::interface_types::algorithm::HashingAlgorithm as TssHashingAlgorithm;

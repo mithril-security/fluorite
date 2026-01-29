@@ -7,10 +7,10 @@
 
 use crate::AKTEMPLATE_NVINDEX_ECC;
 use crate::{NotarizeResponse, ShieldedVmAttestationDocument};
+use anyhow::Context;
 use async_trait::async_trait;
 use attestation::AsyncGenerateAttestationDocument;
 use fn_error_context::context;
-use anyhow::Context;
 use tpm_quote::generate::{tpm_context, AttestationKeyHandle};
 use tss_esapi::handles::TpmHandle;
 use tss_esapi::structures::PcrSelectionList;
@@ -23,7 +23,7 @@ const USERDATA_METADATA_KEY: &str = "user-data";
 /// Generator for Shielded VM attestation documents
 pub struct ShieldedVmAttestationDocumentGenerator {
     tpm_ctx: tss_esapi::Context,
-    notarizer_endorsement: NotarizeResponse
+    notarizer_endorsement: NotarizeResponse,
 }
 
 impl ShieldedVmAttestationDocumentGenerator {
@@ -33,7 +33,10 @@ impl ShieldedVmAttestationDocumentGenerator {
     }
 
     pub async fn new_with_tpm_ctx(tpm_ctx: tss_esapi::Context) -> anyhow::Result<Self> {
-        Ok(Self { tpm_ctx, notarizer_endorsement: Self::fetch_notarizer_endorsement().await? })
+        Ok(Self {
+            tpm_ctx,
+            notarizer_endorsement: Self::fetch_notarizer_endorsement().await?,
+        })
     }
 
     /// Fetch the notarizer endorsement from `user-data` in instance metadata

@@ -27,9 +27,9 @@ pub fn get_artifacts(
             "Artifacts will be checked with slsa-verifier (https://github.com/slsa-framework/slsa-verifier)"
         );
 
-        let provenance_path = provenance_path
-            .clone()
-            .ok_or(anyhow!("The provenance path is empty! Add it with --provenance-path."))?;
+        let provenance_path = provenance_path.clone().ok_or(anyhow!(
+            "The provenance path is empty! Add it with --provenance-path."
+        ))?;
 
         if !provenance_path.is_file() {
             return Err(anyhow::format_err!(
@@ -68,7 +68,7 @@ pub fn get_artifacts(
             slsa_verifier = PathBuf::from(slsa_verifier_path_str);
 
             slsa_verifier_path = Some(slsa_verifier)
-        }else{
+        } else {
             slsa_verifier_path = Some(slsa_verifier)
         }
     }

@@ -108,7 +108,14 @@ async fn main() -> anyhow::Result<()> {
     let storage_client = azure_helper.get_azure_mgmt_storage_client()?;
 
     let container_name = "$web".to_string();
-    let container_client = azure_helper.get_container_client(storage_client, resource_group_name, storage_account_name, container_name).await?;
+    let container_client = azure_helper
+        .get_container_client(
+            storage_client,
+            resource_group_name,
+            storage_account_name,
+            container_name,
+        )
+        .await?;
 
     let (platform_measurements, os_measurement_vec) =
         parse_cli_measurements(args.platform_measurements_path, args.os_measurement)?;

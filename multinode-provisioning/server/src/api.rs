@@ -107,7 +107,9 @@ impl MyState {
             bail!("Unauthorized. Only the creator can call get_instance_identity_document");
         }
 
-        if self.attestation_backend == AttestationBackend::AzureTrustedLaunchVM || self.attestation_backend == AttestationBackend::AzureConfidentialVM {
+        if self.attestation_backend == AttestationBackend::AzureTrustedLaunchVM
+            || self.attestation_backend == AttestationBackend::AzureConfidentialVM
+        {
             Ok(GetInstanceIdentityDocumentResponse {
                 instance_id_document: Some(get_imds_id_document().await?),
                 cert_pem: self.certified_key.cert.pem(),
@@ -118,8 +120,6 @@ impl MyState {
                 cert_pem: self.certified_key.cert.pem(),
             })
         }
-
-    
     }
 
     async fn init_as_slave(
@@ -164,7 +164,6 @@ impl MyState {
                 role: args.role,
             },
         ))?;
-
 
         let attestation_document = get_attestation_document(self.attestation_backend)
             .await
@@ -267,7 +266,6 @@ impl MyState {
             BootstrapperTpmEvents::InitAsMaster { slaves_cert },
         ))?;
 
-
         let attestation_document = get_attestation_document(self.attestation_backend)
             .await
             .context("Error getting the attestation document in init_as_master")?;
@@ -311,7 +309,6 @@ impl MyState {
         if !matches!(*state, ProvisioningState::Provisioned) {
             bail!("The cluster is not yet provisioned");
         }
-
 
         let attestation_document = get_attestation_document(self.attestation_backend)
             .await

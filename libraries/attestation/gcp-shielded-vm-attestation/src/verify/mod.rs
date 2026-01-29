@@ -1,8 +1,7 @@
 //! Verification of GCP Shielded VM attestation documents
 
 use crate::{
-    NotarizeResponse, NotarizerEvent, NotarizerStartedEvent,
-    ShieldedVmAttestationDocument,
+    NotarizeResponse, NotarizerEvent, NotarizerStartedEvent, ShieldedVmAttestationDocument,
 };
 use anyhow::{bail, Context};
 use attestation::eventlog::ParsedEventLog;
@@ -19,8 +18,8 @@ const NOTARIZER_EVENT_LOG_PCR_SLOT: PcrSlot = PcrSlot::Slot8;
 /// PCR slot for OS image measurement
 const OS_IMAGE_PCR_SLOT: PcrSlot = PcrSlot::Slot4;
 
+use serde::{Deserialize, Serialize};
 use std::sync::LazyLock;
-use serde::{Serialize, Deserialize};
 
 #[derive(Serialize, Deserialize)]
 struct GcpNotarizerMeasurements {
@@ -46,7 +45,7 @@ impl VerifyAttestationDocument for ShieldedVmAttestationDocument {
             quote,
             notarizer_endorsement,
         } = self;
-        
+
         let ak = verify_notarizer_response(
             &notarizer_endorsement,
             &GCP_NOTARIZER_MEASUREMENTS.golden_pcr_data,
@@ -61,7 +60,6 @@ impl VerifyAttestationDocument for ShieldedVmAttestationDocument {
         Ok(pcr_data)
     }
 }
-
 
 /// Verify a notarizer response and extract the Shielded VM's attestation key.
 ///
@@ -89,12 +87,19 @@ pub fn verify_notarizer_response(
     now: UnixTime,
 ) -> anyhow::Result<EccAttestationKey> {
     // Step 1: Verify the notarizer's CVM attestation
-    let notarizer_pcr_data = notarize_response.notarizer_attestation.cvm_attestation.verify(now)
+    let notarizer_pcr_data = notarize_response
+        .notarizer_attestation
+        .cvm_attestation
+        .verify(now)
         .context("CVM attestation verification failed")?;
 
     // Step 2: Validate that notarizer PCR data is a superset of golden PCR values
     if !golden_pcr_data.is_subset(&notarizer_pcr_data) {
-        bail!("Notarizer PCR data does not match golden PCR values, expected: {:?}, got: {:?}", golden_pcr_data, notarizer_pcr_data);
+        bail!(
+            "Notarizer PCR data does not match golden PCR values, expected: {:?}, got: {:?}",
+            golden_pcr_data,
+            notarizer_pcr_data
+        );
     }
     log::debug!("Notarizer PCR data validated against golden values");
 
@@ -197,15 +202,14 @@ mod tests {
     /// Note: The digest and PCR data here are not cryptographically valid.
     #[test]
     pub fn demo_gcp_notarizer_measurements() -> anyhow::Result<()> {
-        use tpm_quote::common::{Digest, PcrData, HashingAlgorithm, PcrSlot};
         use std::collections::BTreeMap;
+        use tpm_quote::common::{Digest, HashingAlgorithm, PcrData, PcrSlot};
 
         // Example SHA256 digest (32 bytes). This is dummy data.
         let dummy_digest = Digest(vec![
-            0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xf0,
-            0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88,
-            0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00,
-            0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xf0,
+            0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc, 0xde, 0xf0, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66,
+            0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0x00, 0x12, 0x34, 0x56, 0x78,
+            0x9a, 0xbc, 0xde, 0xf0,
         ]);
 
         // Example PcrData - only partial slots filled, the rest omitted for brevity.
@@ -215,7 +219,7 @@ mod tests {
         bank.insert(PcrSlot::Slot8, dummy_digest.clone());
 
         let pcr_data = PcrData {
-            data: vec![(HashingAlgorithm::Sha256, PcrBank { bank })]
+            data: vec![(HashingAlgorithm::Sha256, PcrBank { bank })],
         };
 
         let gcp_notarizer_measurements = GcpNotarizerMeasurements {
@@ -224,7 +228,6 @@ mod tests {
         };
         let json = serde_json::to_string_pretty(&gcp_notarizer_measurements)?;
         fs::write("gcp_notarizer_measurements_demo.json", json)?;
-
 
         Ok(())
     }

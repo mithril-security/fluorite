@@ -40,8 +40,8 @@ const MAX_CERT_CHAIN_LENGTH: i32 = 5;
 
 // NOTE: As of Jan 19 2026, the OCSP_URL and RIM_SERVICE_BASE_URL timeout.
 // These URLs used to work in the past, but now they don't anymore.
-// We'll keep both the Azure URL and Nvidia URL as fallback, hoping in the future the Azure URL will 
-// work again. 
+// We'll keep both the Azure URL and Nvidia URL as fallback, hoping in the future the Azure URL will
+// work again.
 const OCSP_URL_NVIDIA: &str = "https://ocsp.ndis.nvidia.com/";
 const OCSP_URL: &str = "https://useast2.thim.azure.net/nvidia/ocsp/";
 const OCSP_VALIDITY_EXTENSION_HRS: usize = 336;
@@ -221,10 +221,7 @@ pub(crate) async fn ocsp_certificate_chain_validation(
     let ocsp_url_fallback = Url::parse(OCSP_URL)?;
     ensure!(
         ocsp_url_fallback.scheme() == "https",
-        anyhow::format_err!(
-            "OCSP_URL does not start with https: {}",
-            ocsp_url_fallback
-        )
+        anyhow::format_err!("OCSP_URL does not start with https: {}", ocsp_url_fallback)
     );
 
     for i in start_index..end_index {
@@ -245,7 +242,8 @@ pub(crate) async fn ocsp_certificate_chain_validation(
                 // Fallback to Nvidia OCSP Service if the fetch fails
                 warn!("Error fetching OCSP Response from {}: {:?}", ocsp_url, err);
                 warn!("Using fallback url: {}", ocsp_url_fallback);
-                match fetch_ocsp_response_from_url(ocsp_request_data, ocsp_url_fallback.clone()).await
+                match fetch_ocsp_response_from_url(ocsp_request_data, ocsp_url_fallback.clone())
+                    .await
                 {
                     Ok(ocsp_response) => Ok(ocsp_response),
                     Err(err) => {
@@ -414,7 +412,7 @@ async fn fetch_ocsp_response_from_url(
                     "[{}/{}] Error while trying to get the OCSP response from: {}.",
                     retries, OCSP_RETRY_COUNT, url
                 );
-                
+
                 if retries == OCSP_RETRY_COUNT {
                     break Err(anyhow::format_err!("Reached OCSP_RETRY_COUNT: {}", err));
                 }

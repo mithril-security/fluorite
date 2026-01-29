@@ -104,7 +104,7 @@ async fn main() -> anyhow::Result<()> {
         certified_key: Arc::from(certified_key),
         creator_cert: pem_to_der(&creator_cert_pem)?,
         provisioning_state: Arc::from(Mutex::new(ProvisioningState::NotStarted)),
-        attestation_backend
+        attestation_backend,
     };
 
     let app = Router::new()
@@ -219,13 +219,15 @@ fn get_creator_cert_from_userdata(userdata: &serde_json::Value) -> anyhow::Resul
     Ok(creator_cert_pem.to_string())
 }
 
-fn get_attestation_backend_from_userdata(userdata: &serde_json::Value) -> anyhow::Result<AttestationBackend> {
+fn get_attestation_backend_from_userdata(
+    userdata: &serde_json::Value,
+) -> anyhow::Result<AttestationBackend> {
     let attestation_backend_str: &str = userdata
         .get("attestation_backend")
         .context("Could not find key `attestation_backend` in userdata")?
         .as_str()
         .context("`attestation_backend` must be a string")?;
-    
+
     attestation_backend_str
         .parse::<AttestationBackend>()
         .context("Failed to parse attestation_backend")

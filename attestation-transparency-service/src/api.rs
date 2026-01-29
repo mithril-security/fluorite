@@ -21,7 +21,7 @@ use attested_server_verifier::verifier::{
     make_cluster_policy, make_node_policy,
 };
 use provisioning_structs::structs::{
-    AttestationBackend, ClusterAttestation, PlatformMeasurements, Proof, verify_csr_signature
+    AttestationBackend, ClusterAttestation, PlatformMeasurements, Proof, verify_csr_signature,
 };
 
 #[derive(Clone)]

@@ -93,9 +93,9 @@ pub fn get_and_verify_artifact(
     if !insecure_skip_verify {
         log::info!("Done getting {}. Verifying the artifact...", url);
 
-        let provenance_path = provenance_path
-            .clone()
-            .ok_or(anyhow!("The provenance path is empty! Add it with --provenance-path."))?;
+        let provenance_path = provenance_path.clone().ok_or(anyhow!(
+            "The provenance path is empty! Add it with --provenance-path."
+        ))?;
         let slsa_verifier_path = slsa_verifier_path
             .clone()
             .ok_or(anyhow!("The slsa verifier path is empty!"))?;

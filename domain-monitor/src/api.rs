@@ -13,7 +13,8 @@ use attested_server_verifier::verifier::{
     attestation_validator_after_provisioning, make_cluster_policy, make_node_policy,
 };
 use provisioning_structs::structs::{
-    AttestationBackend, ClusterAttestation, ClusterInfo, NodeAttestationDocument, PlatformMeasurements, Proof
+    AttestationBackend, ClusterAttestation, ClusterInfo, NodeAttestationDocument,
+    PlatformMeasurements, Proof,
 };
 
 use anyhow::{Context, anyhow};
@@ -425,7 +426,6 @@ impl MyState {
                 attestation_transparency_service_url: self.storage_url.to_string(),
                 provisioning_package_url: self.provisioning_package_url.to_string(),
                 os_disk_url: self.os_disk_url.to_string(),
-                
             }
         }))
         .await;
