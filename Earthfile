@@ -511,7 +511,11 @@ svsm:
     RUN git submodule update --init && \
         FW_FILE=/root/OVMF.fd cargo xbuild --release configs/qemu-target.json
 
+    RUN MEASUREMENT=$(./target/release/igvmmeasure bin/coconut-qemu.igvm measure -b) && \
+        echo "{\"measurement\": \"$MEASUREMENT\"}" > igvm_measurement.json
+
     SAVE ARTIFACT bin/coconut-qemu.igvm AS LOCAL ./coconut-svsm/coconut-qemu.igvm
+    SAVE ARTIFACT igvm_measurement.json AS LOCAL ./libraries/attestation/svsm-sev-attestation/igvm_measurement.json
 
 ovmf:
     # https://coconut-svsm.github.io/svsm/installation/INSTALL/#building-the-guest-firmware

@@ -9,18 +9,36 @@ use sev::{
     certs::snp::{self, ca, Certificate, Verifiable},
     CpuFamily, CpuModel, Generation,
 };
-use sha2::{Digest, Sha512};
+use tpm_quote::common::Digest as tpmDigest;
+use sha2::{Sha512, Digest};
 
 use tpm_quote::{
     common::SanitizedPcrData,
     verify::{AttestationKey, EccAttestationKey},
 };
+use serde::{Deserialize, Serialize};
+use std::sync::LazyLock;
+
+#[derive(Serialize, Deserialize)]
+struct IGVMMeasurement {
+    measurement: tpmDigest,
+}
+
+
+static IGVM_MEASUREMENT: LazyLock<IGVMMeasurement> = LazyLock::new(|| {
+    const JSON: &str = include_str!("../../igvm_measurement.json");
+    serde_json::from_str(JSON)
+        .expect("Failed to parse igvm_measurement.json at compile time")
+});
 
 impl VerifyAttestationDocument for SvsmVtpmAttestationDocument {
     fn verify(&self, _now: UnixTime) -> anyhow::Result<SanitizedPcrData> {
         // TODO: Use arg now to check for expiration
         // Reference: https://www.amd.com/content/dam/amd/en/documents/developer/58217-epyc-9004-ug-platform-attestation-using-virtee-snp.pdf
 
+        if *self.attestation_report.measurement != *IGVM_MEASUREMENT.measurement.0{
+            bail!("Attestation Report measurement doesn't match the expected IGVM measurement. \nExpected: {}\nGot: {}", hex::encode(IGVM_MEASUREMENT.measurement.0.clone()), hex::encode(*self.attestation_report.measurement));
+        }
         let nonce = [0u8; 64];
         let nonce_and_manifest = [&nonce[..], &self.ak_pub_key[..]].concat();
         let hash = Sha512::digest(&nonce_and_manifest);
@@ -33,9 +51,21 @@ impl VerifyAttestationDocument for SvsmVtpmAttestationDocument {
 
         ensure!(!self.attestation_report.policy.debug_allowed(), "Policy allows debug mode but should not");
         ensure!(!self.attestation_report.policy.migrate_ma_allowed(), "Policy allows migration but should not");
-        ensure!(self.attestation_report.policy.ciphertext_hiding(), "Policy should enforce ciphertext hiding but does not");
-        ensure!(self.attestation_report.policy.mem_aes_256_xts(), "Policy should enforce AES-256-XTS but does not");
-        ensure!(self.attestation_report.policy.single_socket_required(), "Policy should enforce single socket but does not");
+        // NOTE: We use policy 0x3000
+        // - PAGE SWAPPING is not disabled.
+        // - Ciphertext hiding for the DRAM is not enabled.
+        // - Allow Running Average Power Limit (RAPL).
+        // - Allow AES 128 XEX or AES 256 XTS for memory encryption.
+        // - CXL cannot be populated with devices or memory.
+        // - Guest can be activated on multiple sockets.
+        // - Debugging is disallowed.
+        // - Migration agent is disallowed.
+        // - SMT is allowed.
+        // - ABI Minor/Major is not set for this VM.
+        
+        // ensure!(self.attestation_report.policy.ciphertext_hiding(), "Policy should enforce ciphertext hiding but does not");
+        // ensure!(self.attestation_report.policy.mem_aes_256_xts(), "Policy should enforce AES-256-XTS but does not");
+        // ensure!(self.attestation_report.policy.single_socket_required(), "Policy should enforce single socket but does not");
 
         let chip_id = self.attestation_report.chip_id;
 
