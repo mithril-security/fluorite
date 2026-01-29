@@ -160,7 +160,8 @@ mod test {
             .with_selection(HashingAlgorithm::Sha256, ALL_SLOTS)
             .build()?;
 
-        let _doc = ShieldedVmAttestationDocumentGenerator::new()?
+        let _doc = ShieldedVmAttestationDocumentGenerator::new_with_default()
+            .await?
             .generate_attestation_document(&pcr_selection_list)
             .await?;
 

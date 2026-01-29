@@ -650,8 +650,8 @@ mod test {
     };
 
     use crate::verifier::{
-        PcrData, attestation_validator_after_provisioning, make_cluster_policy,
-        make_multinode_policy, make_node_policy,
+        attestation_validator_after_provisioning, make_cluster_policy, make_multinode_policy,
+        make_node_policy,
     };
     use env_logger::Env;
     use provisioning_structs::structs::ClusterAttestation;
