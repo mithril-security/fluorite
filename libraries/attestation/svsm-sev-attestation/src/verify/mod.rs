@@ -1,7 +1,7 @@
 mod collateral;
 
 use crate::SvsmVtpmAttestationDocument;
-use anyhow::{bail, Context, Ok};
+use anyhow::{Context, Ok, bail, ensure};
 use attestation::VerifyAttestationDocument;
 use collateral::validate_cert_metadata;
 use rustls_pki_types::UnixTime;
@@ -30,6 +30,12 @@ impl VerifyAttestationDocument for SvsmVtpmAttestationDocument {
         if *self.attestation_report.report_data != *hash {
             bail!("Report data doesn't match the hash of the AK public key. \nreport_data {} \nhash_ak_pkey {}", hex::encode(self.attestation_report.report_data), hex::encode(hash))
         }
+
+        ensure!(!self.attestation_report.policy.debug_allowed(), "Policy allows debug mode but should not");
+        ensure!(!self.attestation_report.policy.migrate_ma_allowed(), "Policy allows migration but should not");
+        ensure!(self.attestation_report.policy.ciphertext_hiding(), "Policy should enforce ciphertext hiding but does not");
+        ensure!(self.attestation_report.policy.mem_aes_256_xts(), "Policy should enforce AES-256-XTS but does not");
+        ensure!(self.attestation_report.policy.single_socket_required(), "Policy should enforce single socket but does not");
 
         let chip_id = self.attestation_report.chip_id;
 
