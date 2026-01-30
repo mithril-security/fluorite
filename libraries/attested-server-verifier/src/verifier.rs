@@ -136,7 +136,7 @@ pub fn make_node_policy(
             .any(|expected_pcr_data| expected_pcr_data.is_subset(pcr_data))
         {
             bail!(
-                "None of the expected platform measurements was a subset of the pcr_data from the enclave. \nExpected:\n{} \nGot:\n{}\n",
+                "None of the expected platform measurements were a subset of the pcr_data from the enclave. \nExpected:\n{} \nGot:\n{}\n",
                 serde_json::to_string_pretty(&expected_platform_measurements)?,
                 serde_json::to_string_pretty(&pcr_data)?
             )

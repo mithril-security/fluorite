@@ -1,7 +1,7 @@
 mod collateral;
 
 use crate::SvsmVtpmAttestationDocument;
-use anyhow::{Context, Ok, bail, ensure};
+use anyhow::{bail, ensure, Context, Ok};
 use attestation::VerifyAttestationDocument;
 use collateral::validate_cert_metadata;
 use rustls_pki_types::UnixTime;
@@ -9,24 +9,23 @@ use sev::{
     certs::snp::{self, ca, Certificate, Verifiable},
     CpuFamily, CpuModel, Generation,
 };
-use tpm_quote::common::Digest as TpmDigest;
-use sha2::{Sha512, Digest};
+use sha2::{Digest, Sha512};
+use tpm_quote::common::{Digest as TpmDigest};
 
+use serde::{Deserialize, Serialize};
+use std::sync::LazyLock;
 use tpm_quote::{
     common::SanitizedPcrData,
     verify::{AttestationKey, EccAttestationKey},
 };
-use serde::{Deserialize, Serialize};
-use std::sync::LazyLock;
 
 #[derive(Serialize, Deserialize)]
-struct IGVMMeasurement {
-    measurement: TpmDigest,
+struct BaremetalMeasurements {
+    igvm_measurement: TpmDigest,
 }
 
-
-static IGVM_MEASUREMENT: LazyLock<IGVMMeasurement> = LazyLock::new(|| {
-    const JSON: &str = include_str!("../../igvm_measurement.json");
+static BAREMETAL_MEASUREMENTS: LazyLock<BaremetalMeasurements> = LazyLock::new(|| {
+    const JSON: &str = include_str!("../../baremetal_measurements.json");
     serde_json::from_str(JSON)
         .expect("Failed to parse igvm_measurement.json at compile time")
 });
@@ -36,8 +35,8 @@ impl VerifyAttestationDocument for SvsmVtpmAttestationDocument {
         // TODO: Use arg now to check for expiration
         // Reference: https://www.amd.com/content/dam/amd/en/documents/developer/58217-epyc-9004-ug-platform-attestation-using-virtee-snp.pdf
 
-        if *self.attestation_report.measurement != *IGVM_MEASUREMENT.measurement.0{
-            bail!("Attestation Report measurement doesn't match the expected IGVM measurement. \nExpected: {}\nGot: {}", hex::encode(IGVM_MEASUREMENT.measurement.0.clone()), hex::encode(*self.attestation_report.measurement));
+        if *self.attestation_report.measurement != *BAREMETAL_MEASUREMENTS.igvm_measurement.0 {
+            bail!("Attestation Report measurement doesn't match the expected IGVM measurement. \nExpected: {}\nGot: {}", hex::encode(BAREMETAL_MEASUREMENTS.igvm_measurement.0.clone()), hex::encode(*self.attestation_report.measurement));
         }
         let nonce = [0u8; 64];
         let nonce_and_manifest = [&nonce[..], &self.ak_pub_key[..]].concat();
@@ -49,8 +48,14 @@ impl VerifyAttestationDocument for SvsmVtpmAttestationDocument {
             bail!("Report data doesn't match the hash of the AK public key. \nreport_data {} \nhash_ak_pkey {}", hex::encode(self.attestation_report.report_data), hex::encode(hash))
         }
 
-        ensure!(!self.attestation_report.policy.debug_allowed(), "Policy allows debug mode but should not");
-        ensure!(!self.attestation_report.policy.migrate_ma_allowed(), "Policy allows migration but should not");
+        ensure!(
+            !self.attestation_report.policy.debug_allowed(),
+            "Policy allows debug mode but should not"
+        );
+        ensure!(
+            !self.attestation_report.policy.migrate_ma_allowed(),
+            "Policy allows migration but should not"
+        );
         // NOTE: We use policy 0x3000
         // - PAGE SWAPPING is not disabled.
         // - Ciphertext hiding for the DRAM is not enabled.
@@ -62,7 +67,7 @@ impl VerifyAttestationDocument for SvsmVtpmAttestationDocument {
         // - Migration agent is disallowed.
         // - SMT is allowed.
         // - ABI Minor/Major is not set for this VM.
-        
+
         // ensure!(self.attestation_report.policy.ciphertext_hiding(), "Policy should enforce ciphertext hiding but does not");
         // ensure!(self.attestation_report.policy.mem_aes_256_xts(), "Policy should enforce AES-256-XTS but does not");
         // ensure!(self.attestation_report.policy.single_socket_required(), "Policy should enforce single socket but does not");

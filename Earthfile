@@ -504,18 +504,16 @@ svsm:
     RUN git clone --branch new_vtpm_attestation_ak https://github.com/mithril-security/svsm/ /root/svsm
     COPY +ovmf/OVMF.fd /root/OVMF.fd
     WORKDIR /root/svsm
-    RUN git checkout 49eecf5b9c214c1aca576426a0bbd67d2b8c933c # Tested commit
-
-    CACHE ./target/release
+    RUN git checkout 99c92fb076b0b6eb872930a688fa64c9f52ba54a # Tested commit
 
     RUN git submodule update --init && \
         FW_FILE=/root/OVMF.fd cargo xbuild --release configs/qemu-target.json
 
     RUN MEASUREMENT=$(./target/release/igvmmeasure bin/coconut-qemu.igvm measure -b) && \
-        echo "{\"measurement\": \"$MEASUREMENT\"}" > igvm_measurement.json
+        echo "{\"measurement\": \"$MEASUREMENT\"}" > baremetal_measurements.json
 
     SAVE ARTIFACT bin/coconut-qemu.igvm AS LOCAL ./coconut-svsm/coconut-qemu.igvm
-    SAVE ARTIFACT igvm_measurement.json AS LOCAL ./libraries/attestation/svsm-sev-attestation/igvm_measurement.json
+    SAVE ARTIFACT baremetal_measurements.json AS LOCAL ./libraries/attestation/svsm-sev-attestation/baremetal_measurements.json
 
 ovmf:
     # https://coconut-svsm.github.io/svsm/installation/INSTALL/#building-the-guest-firmware
