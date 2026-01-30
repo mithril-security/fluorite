@@ -510,7 +510,7 @@ svsm:
         FW_FILE=/root/OVMF.fd cargo xbuild --release configs/qemu-target.json
 
     RUN MEASUREMENT=$(./target/release/igvmmeasure bin/coconut-qemu.igvm measure -b) && \
-        echo "{\"measurement\": \"$MEASUREMENT\"}" > baremetal_measurements.json
+        echo "{\"igvm_measurement\": \"$MEASUREMENT\"}" > baremetal_measurements.json
 
     SAVE ARTIFACT bin/coconut-qemu.igvm AS LOCAL ./coconut-svsm/coconut-qemu.igvm
     SAVE ARTIFACT baremetal_measurements.json AS LOCAL ./libraries/attestation/svsm-sev-attestation/baremetal_measurements.json

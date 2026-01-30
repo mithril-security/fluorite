@@ -27,7 +27,7 @@ struct BaremetalMeasurements {
 static BAREMETAL_MEASUREMENTS: LazyLock<BaremetalMeasurements> = LazyLock::new(|| {
     const JSON: &str = include_str!("../../baremetal_measurements.json");
     serde_json::from_str(JSON)
-        .expect("Failed to parse igvm_measurement.json at compile time")
+        .expect("Failed to parse baremetal_measurements.json at compile time")
 });
 
 impl VerifyAttestationDocument for SvsmVtpmAttestationDocument {
@@ -143,18 +143,18 @@ mod test {
                             Slot1: d9f841a3a85156d97040aadc152eb25d7dfabf3ec77dca2a4a0dc5f5cecdba7d,
                             Slot2: 3d458cfe55cc03ea1f443f1562beec8df51c75e14a9fcf9a7234a13f198e7969,
                             Slot3: 3d458cfe55cc03ea1f443f1562beec8df51c75e14a9fcf9a7234a13f198e7969,
-                            Slot4: 9dd1b60f266133e0f35d19db0e17244529edca3a67001ab1ffb11a246bdd20c2,
-                            Slot5: 593e79e5498be2734a15f8131b2ef77aa3dbc15f2ba026d5ed5cd4c5cd6836e5,
+                            Slot4: 1c96ef5ecac61c0c2cb26d7b4ae4cf43ba5bed073c6b29fe4f6ad008aa4a2c32,
+                            Slot5: cf4dc5c88dd9735666596c7bd8bd51bf961ba2ea219b9e52cf3633bb8b136597,
                             Slot6: 3d458cfe55cc03ea1f443f1562beec8df51c75e14a9fcf9a7234a13f198e7969,
                             Slot7: b5710bf57d25623e4019027da116821fa99f5c81e9e38b87671cc574f9281439,
                             Slot8: 0000000000000000000000000000000000000000000000000000000000000000,
-                            Slot9: f763d7440d0621cc9eabc01fc724ba1ee29e694674317d30a9e12cb440eb6cb1,
-                            Slot10: 9629923991d2d09fbd2e3d69cedf14b5aa0e619550ad71d4f406e372e9306804,
-                            Slot11: 11cc503b832649d63223d28e8778a5fcde62a6484e4ef2c1e18717833acbb630,
+                            Slot9: 3ada7ec56e06f29f4ec5cce007b2b9aad7323dd57f3433fab1a68f8fe057d62c,
+                            Slot10: b3fb39e58d186eb59921dcf8970cd940a5fab7269fa1578537a7481667861e2c,
+                            Slot11: c7e18cd7b879dcc5c5bd20be5c86e642b071cb06d855ea86e76cc4136a63cd9e,
                             Slot12: 0000000000000000000000000000000000000000000000000000000000000000,
                             Slot13: 0000000000000000000000000000000000000000000000000000000000000000,
                             Slot14: 0000000000000000000000000000000000000000000000000000000000000000,
-                            Slot15: a7365015c30eae41a8a7b80fa54fe84f8d99c46a2e6336b51247c977608c8d20,
+                            Slot15: 5f18b36ff47141fe85695decb3b5c385bb8a65d372aef607e5605cd9f912168c,
                             Slot16: 0000000000000000000000000000000000000000000000000000000000000000,
                             Slot17: ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff,
                             Slot18: ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff,
