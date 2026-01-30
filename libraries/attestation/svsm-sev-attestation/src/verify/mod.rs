@@ -9,7 +9,7 @@ use sev::{
     certs::snp::{self, ca, Certificate, Verifiable},
     CpuFamily, CpuModel, Generation,
 };
-use tpm_quote::common::Digest as tpmDigest;
+use tpm_quote::common::Digest as TpmDigest;
 use sha2::{Sha512, Digest};
 
 use tpm_quote::{
@@ -21,7 +21,7 @@ use std::sync::LazyLock;
 
 #[derive(Serialize, Deserialize)]
 struct IGVMMeasurement {
-    measurement: tpmDigest,
+    measurement: TpmDigest,
 }
 
 
