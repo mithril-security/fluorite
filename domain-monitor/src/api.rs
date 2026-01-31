@@ -5,6 +5,7 @@ use oid_registry::OidRegistry;
 use reqwest::Client;
 use serde_json::Value;
 use std::sync::Arc;
+use tokio::fs;
 use url::Url;
 use x509_parser::utils::format_serial;
 
@@ -110,22 +111,35 @@ impl MyState {
         oid_registry: &OidRegistry<'_>,
     ) -> anyhow::Result<CertificateInfo> {
         log::info!("Downloading certificate entry with ID {} from CT logs.", id);
-        let certificate_pem_bytes = self
-            .client
-            .get(format!("https://crt.sh/json?d={id}"))
-            .send()
-            .await
-            .context(format!(
-                "Network error requesting certificate with id {id} from crt.sh"
-            ))?
-            .error_for_status()
-            .context(format!(
-                "HTTP error requesting certificate with id {id} from crt.sh"
-            ))?
-            .bytes()
-            .await?;
-        // let certificate_pem_bytes = std::fs::read(format!("./certs/{id}.crt"))
-        //     .context(format!("Could not read file {id}"))?;
+        let path = format!("./certificates/{id}.crt");
+
+        let certificate_pem_bytes = if fs::try_exists(&path).await.context(format!(
+            "Failed to check existance of certificate at {path}"
+        ))? {
+            log::info!("Using cached certificate with id {}", id);
+            fs::read(&path)
+                .await
+                .context(format!("Failed to read cached certificate at {path}"))?
+                .into()
+        } else {
+            log::info!("Getting certificate with id {} from crt.sh", id);
+            let response_bytes = self
+                .client
+                .get(format!("https://crt.sh/?d={id}"))
+                .send()
+                .await
+                .context(format!("Network error requesting certificate {id}"))?
+                .error_for_status()?
+                .bytes()
+                .await?;
+
+            fs::write(&path, &response_bytes)
+                .await
+                .context(format!("Failed to write certificate to {path}"))?;
+
+            response_bytes
+        };
+
         log::info!(
             "Got certificate entry with ID {} from CT logs. Processing fields.",
             id
@@ -138,7 +152,6 @@ impl MyState {
         let certificate_pem_string = String::from_utf8(certificate_pem_bytes.to_vec())
             .context("Error converting from certificate_pem_bytes to certificate_pem_string")?;
 
-        // Assume this won't fail,
         let certificate = parse_x509_certificate(&parsed_pem.contents)
             .context(format!(
                 "Failed parsing DER data for certificate entry with id {id}"
@@ -275,31 +288,47 @@ impl MyState {
             id
         );
 
-        let proof_url = self
-            .storage_url
-            .join(&format!("/by-hash-pub-key/{}", hash_public_key))?;
+        let path = format!("./proofs/{hash_public_key}.json");
 
-        let proof = self
-            .client
-            .get(proof_url.clone())
-            .send()
-            .await
-            .context(format!(
-                "Network error requesting proof with id {id} from blob storage: {proof_url}"
-            ))?
-            .error_for_status()
-            .context(format!(
-                "HTTP error requesting certificate with id {id} from blob storage: {proof_url}"
-            ))?
-            .bytes()
-            .await?;
+        let proof = if fs::try_exists(&path).await.context(format!(
+            "Failed to check existance of certificate at {path}"
+        ))? {
+            log::info!("Using cached proof with hash {}", hash_public_key);
+            fs::read(&path)
+                .await
+                .context(format!("Failed to read cached certificate at {path}"))?
+                .into()
+        } else {
+            log::info!(
+                "Getting proof with hash {} from Blob Storage",
+                hash_public_key
+            );
+            let proof_url = self
+                .storage_url
+                .join(&format!("/by-hash-pub-key/{}", hash_public_key))?;
 
-        // let proof = std::fs::read(format!("./{}.json", certificate_info.hash_public_key)).context(
-        //     format!(
-        //         "Could not read file {}.json",
-        //         certificate_info.hash_public_key
-        //     ),
-        // )?;
+            let response_bytes = self
+                .client
+                .get(proof_url.clone())
+                .send()
+                .await
+                .context(format!(
+                    "Network error requesting proof with id {id} from blob storage: {proof_url}"
+                ))?
+                .error_for_status()
+                .context(format!(
+                    "HTTP error requesting certificate with id {id} from blob storage: {proof_url}"
+                ))?
+                .bytes()
+                .await?;
+
+            fs::write(&path, &response_bytes)
+                .await
+                .context(format!("Failed to write proof to {path}"))?;
+
+            response_bytes
+        };
+
         log::info!(
             "Got proof from Blob Storage for certificate with ID {}.",
             id
@@ -405,8 +434,6 @@ impl MyState {
             .context("HTTP error requesting certificates issued for domain to crt.sh")?;
 
         let certificate_entries = response.json::<CertificateEntries>().await?;
-        // let data = std::fs::read("./certs/thing.json").expect("Could not read file");
-        // let certificate_entries: CertificateEntries = serde_json::from_slice(&data)?;
         let oid_registry = OidRegistry::default().with_crypto();
         let attestation_backend = self.attestation_backend;
 

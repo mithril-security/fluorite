@@ -1140,7 +1140,6 @@ dependencies = [
  "sha256",
  "tokio",
  "tower-http",
- "tpm-quote",
  "tracing-subscriber",
  "url",
  "x509-parser 0.17.0",

@@ -24,7 +24,6 @@ futures = "0.3.31"
 attestation = { path = "../libraries/attestation/attestation",  features = ["tss-esapi"] }
 attested-server-verifier = {  path = "../libraries/attested-server-verifier"}
 provisioning-structs = { path = "../libraries/provisioning-structs" }
-tpm-quote = { path = "../libraries/attestation/tpm-quote" }
 oid-registry = "0.8.1"
 url = { version = "2.5.4", features = ["serde"]}
 envy = "0.4.2"

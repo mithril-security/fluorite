@@ -421,9 +421,6 @@ domain-monitor-image:
         libclang-dev \
         && rm -rf /var/lib/apt/lists/*
 
-    # Install Azure CLI
-    RUN curl -sL https://aka.ms/InstallAzureCLIDeb | bash
-
     # Set the working directory in the container
     WORKDIR /app
 
@@ -431,6 +428,7 @@ domain-monitor-image:
     COPY +domain-monitor/monitor ./domain-monitor
     COPY ./measurements/ ./measurements
     COPY ./domain-monitor/static/ ./static/
+    RUN mkdir -p ./certificates ./proofs
 
     EXPOSE 8000
     ENTRYPOINT ["./domain-monitor"]
