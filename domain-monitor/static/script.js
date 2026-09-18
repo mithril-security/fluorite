@@ -496,16 +496,13 @@ function displayTable(data, domain) {
             attestationStatusHtml = `<span class="${attestationColor} font-semibold flex items-center justify-center space-x-1"><i data-lucide="${attestationIcon}" class="w-4 h-4"></i><span>${attestationStatus}</span></span>`;
         }
 
-        const issuedDate = cert.cert_sh_certificate_entry_info.entry_timestamp ? formatter.format(new Date(cert.cert_sh_certificate_entry_info.entry_timestamp)) : 'N/A';
         const validFrom = cert.cert_sh_certificate_entry_info.not_before ? formatter.format(new Date(cert.cert_sh_certificate_entry_info.not_before)) : 'N/A';
         const validTo = cert.cert_sh_certificate_entry_info.not_after ? formatter.format(new Date(cert.cert_sh_certificate_entry_info.not_after)) : 'N/A';
         const commonName = cert.cert_sh_certificate_entry_info.name_value || 'N/A';
         const issuer = cert.cert_sh_certificate_entry_info.issuer_name || 'N/A';
         const attestationBackend = cert.attestation_backend || 'N/A';
-        console.log(issuedDate)
         row.innerHTML = `
             <td class="py-3 px-6 text-left whitespace-nowrap">${cert.cert_sh_certificate_entry_info.id}</td>
-            <td class="py-3 px-6 text-left">${issuedDate}</td>
             <td class="py-3 px-6 text-left">${validFrom} to ${validTo}</td>
             <td class="py-3 px-6 text-left">${commonName}</td>
             <td class="py-3 px-6 text-left">${issuer}</td>

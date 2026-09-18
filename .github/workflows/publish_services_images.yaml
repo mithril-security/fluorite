@@ -8,8 +8,37 @@ env:
   FLUORITE_VERSION: "0.1.0"
 
 jobs:
+  detect-service:
+    runs-on: ubuntu-latest
+    outputs:
+      build_ats: ${{ steps.detect.outputs.build_ats }}
+      build_domain_monitor: ${{ steps.detect.outputs.build_domain_monitor }}
+      version: ${{ steps.detect.outputs.version }}
+    steps:
+      - name: Detect service from tag
+        id: detect
+        run: |
+          TAG="${{ github.event.release.tag_name }}"
+
+          if [[ "$TAG" == services-v* ]]; then
+            echo "build_ats=true" >> $GITHUB_OUTPUT
+            echo "build_domain_monitor=true" >> $GITHUB_OUTPUT
+            VERSION="${TAG#services-v}"
+          elif [[ "$TAG" == domain-monitor-v* ]]; then
+            echo "build_ats=false" >> $GITHUB_OUTPUT
+            echo "build_domain_monitor=true" >> $GITHUB_OUTPUT
+            VERSION="${TAG#domain-monitor-v}"
+          else
+            echo "build_ats=false" >> $GITHUB_OUTPUT
+            echo "build_domain_monitor=false" >> $GITHUB_OUTPUT
+            VERSION=""
+          fi
+
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
   publish-services-images:
-    if: startsWith(github.event.release.tag_name, 'services-v')
+    needs: detect-service
+    if: needs.detect-service.outputs.version != ''
     runs-on: fluorite-runner
     timeout-minutes: 60
     environment: release
@@ -22,14 +51,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set version
-        id: version
-        run: |
-          VERSION="${{ github.event.release.tag_name }}"
-          VERSION_NO_PREFIX="${VERSION#services-v}"
-          echo "tag=${VERSION}" >> $GITHUB_OUTPUT
-          echo "semver=${VERSION_NO_PREFIX}" >> $GITHUB_OUTPUT
-
       - name: Docker Login
         uses: azure/docker-login@v1
         with:
@@ -37,12 +58,19 @@ jobs:
           username: fluorite
           password: ${{ secrets.ACR_PASSWORD }}
 
-      - name: Build attestation-transparency-service and domain-monitor
-        env:
-          VERSION: ${{ steps.version.outputs.semver }}
+      - name: Fetch Fluorite measurements
         run: |
           curl "https://storage.googleapis.com/fluorite/$FLUORITE_VERSION/gcp-cvm-notarizer/gcp_notarizer_measurements.json" > libraries/attestation/gcp-shielded-vm-attestation/gcp_notarizer_measurements.json
           curl "https://storage.googleapis.com/fluorite/$FLUORITE_VERSION/fluorite-os/baremetal-amd-sev/baremetal_measurements.json" > libraries/attestation/svsm-sev-attestation/baremetal_measurements.json
 
-          earthly --push +attestation-transparency-service-image --TAG=$VERSION
-          earthly --push +domain-monitor-image --TAG=$VERSION
+      - name: Build and push attestation-transparency-service
+        if: needs.detect-service.outputs.build_ats == 'true'
+        env:
+          VERSION: ${{ needs.detect-service.outputs.version }}
+        run: earthly --push +attestation-transparency-service-image --TAG=$VERSION
+
+      - name: Build and push domain-monitor
+        if: needs.detect-service.outputs.build_domain_monitor == 'true'
+        env:
+          VERSION: ${{ needs.detect-service.outputs.version }}
+        run: earthly --push +domain-monitor-image --TAG=$VERSION
