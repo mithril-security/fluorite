@@ -9,6 +9,8 @@ permissions:
 
 env:
   VERSION: 0.1.0
+  DOMAIN_MONITOR_VERSION: 0.1.1
+  ATS_VERSION: 0.1.0
   ZONE_NAME: demo.mithrilsecurity.io
 jobs:
   test:
@@ -116,7 +118,7 @@ jobs:
       - name: Build and deploy Attestation Transparency Service Container App
         uses: azure/container-apps-deploy-action@v2
         with:
-          imageToDeploy: fluorite.azurecr.io/attestation-transparency-service:${{ env.VERSION }}
+          imageToDeploy: fluorite.azurecr.io/attestation-transparency-service:${{ env.ATS_VERSION }}
           containerAppName: ${{ env.ATS_CONTAINER_APP_NAME }}
           containerAppEnvironment: ${{ env.ATS_CONTAINER_APP_ENVIRONMENT }}
           resourceGroup: ${{ env.RESOURCE_GROUP }}
@@ -128,7 +130,7 @@ jobs:
       - name: Build and deploy domain-monitor Container App
         uses: azure/container-apps-deploy-action@v2
         with:
-          imageToDeploy: fluorite.azurecr.io/domain-monitor:${{ env.VERSION }}
+          imageToDeploy: fluorite.azurecr.io/domain-monitor:${{ env.DOMAIN_MONITOR_VERSION }}
           containerAppName: ${{ env.DOMAIN_MONITOR_CONTAINER_APP_NAME }}
           containerAppEnvironment: ${{ env.DOMAIN_MONITOR_CONTAINER_APP_ENVIRONMENT }}
           resourceGroup: ${{ env.RESOURCE_GROUP }}
