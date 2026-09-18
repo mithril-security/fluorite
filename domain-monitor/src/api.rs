@@ -48,7 +48,6 @@ pub struct CertificateEntry {
     pub common_name: String,
     pub name_value: String,
     pub id: u64,
-    pub entry_timestamp: String,
     pub not_before: String,
     pub not_after: String,
     pub serial_number: String,
