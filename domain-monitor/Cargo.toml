@@ -28,3 +28,5 @@ provisioning-structs = { path = "../libraries/provisioning-structs" }
 oid-registry = "0.8.1"
 url = { version = "2.5.4", features = ["serde"]}
 envy = "0.4.2"
+chrono = "0.4.45"
+pem = "4.0.0"

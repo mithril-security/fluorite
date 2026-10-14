@@ -20,6 +20,17 @@ const wildcardCertificateMessage = document.getElementById('wildcard-certificate
 
 const certificateTableBody = document.getElementById('certificate-table-body');
 
+const certificateTableContainer = document.getElementById('certificate-table-container');
+const crtShError = document.getElementById('crt-sh-error');
+const crtShErrorText = document.getElementById('crt-sh-error-text');
+const crtShEmpty = document.getElementById('crt-sh-empty');
+
+const liveCertificateView = document.getElementById('live-certificate-view');
+const liveCertificateTableContainer = document.getElementById('live-certificate-table-container');
+const liveCertificateError = document.getElementById('live-certificate-error');
+const liveCertificateErrorText = document.getElementById('live-certificate-error-text');
+const liveCertificateTableBody = document.getElementById('live-certificate-table-body');
+
 const singleCertificateView = document.getElementById('single-certificate-view');
 const certificateDataDisplay = document.getElementById('certificate-data-display');
 
@@ -101,6 +112,8 @@ function setLoadingState(isLoading) {
         inputErrorMessage.classList.add('hidden'); // Hide input error
         safetyMessage.classList.add('hidden'); // Hide safety message during loading
         certificateTableSection.classList.add('hidden'); // Hide table during loading
+        liveCertificateView.classList.add('hidden');
+        liveCertificateTableBody.replaceChildren();
         wildcardCertificateMessage.classList.add('hidden'); // Hide wilcard message during loading
         singleCertificateView.classList.add('hidden'); // Hide single view during loading
 
@@ -132,6 +145,7 @@ function displayError(message, errorType = "lookup") {
     if (errorType == "lookup") {
         certificateDataDisplay.classList.add('hidden');
         certificateTableSection.classList.add('hidden');
+        liveCertificateView.classList.add('hidden');
         wildcardCertificateMessage.classList.add('hidden');
         singleCertificateView.classList.add('hidden');
         safetyMessage.classList.add('hidden');
@@ -140,12 +154,14 @@ function displayError(message, errorType = "lookup") {
         // For errors within a specific certificate view, hide data but keep the view and the back button.
         certificateDataDisplay.classList.add('hidden');
         certificateTableSection.classList.add('hidden');
+        liveCertificateView.classList.add('hidden');
         wildcardCertificateMessage.classList.add('hidden');
         singleCertificateView.classList.remove('hidden');
         safetyMessage.classList.add('hidden');
         backToTableButton.classList.remove('hidden');
     } else if (errorType == "cluster_info") {
         certificateTableSection.classList.add('hidden');
+        liveCertificateView.classList.add('hidden');
         singleCertificateView.classList.remove('hidden');
         wildcardCertificateMessage.classList.add('hidden');
         safetyMessage.classList.add('hidden');
@@ -187,10 +203,9 @@ function populateAttestationDetails(data, prefix, copyOpCertBtnId, copyOpMsgId, 
     const statusTextElement = getElement('status-text');
     const rawAttestationElement = getElement('raw-document');
 
-    if (statusIconElement) statusIconElement.innerHTML = '';
     if (statusTextElement) statusTextElement.textContent = '';
 
-    if (statusIconElement) statusIconElement.innerHTML = `<i data-lucide="check-circle" class="${iconSizeClass} text-green-500"></i>`;
+    if (statusIconElement) statusIconElement.replaceChildren(createIcon('check-circle', `${iconSizeClass} text-green-500`));
     if (statusTextElement && is_valid_now && cluster_info) {
         statusTextElement.textContent = 'Valid';
         statusTextElement.classList.remove('text-red-500', 'text-orange-500');
@@ -199,12 +214,12 @@ function populateAttestationDetails(data, prefix, copyOpCertBtnId, copyOpMsgId, 
         statusTextElement.textContent = 'Error. Attestation document is valid, but certificate has expired.';
         statusTextElement.classList.remove('text-red-500', 'text-orange-500');
         statusTextElement.classList.add('text-orange-500');
-        statusIconElement.innerHTML = `<i data-lucide="alert-triangle" class="${iconSizeClass} text-orange-500"></i>`;
+        statusIconElement.replaceChildren(createIcon('alert-triangle', `${iconSizeClass} text-orange-500`));
     } else {
         statusTextElement.textContent = 'Error. Attestation document is not valid.';
         statusTextElement.classList.remove('text-green-500', 'text-orange-500');
         statusTextElement.classList.add('text-red-500');
-        statusIconElement.innerHTML = `<i data-lucide="x-circle" class="${iconSizeClass} text-red-500"></i>`;
+        statusIconElement.replaceChildren(createIcon('x-circle', `${iconSizeClass} text-red-500`));
         displayError(`Error verifying attestation for ${domain}: ${data.reason}`, "cluster_info");
         return // Early return because there is no cluster_info
     }
@@ -340,12 +355,13 @@ function populateAttestationDetails(data, prefix, copyOpCertBtnId, copyOpMsgId, 
  * Populates the detailed view for a single certificate.
  * @param {object} data - The certificate data for a single entry.
  * @param {string} domain - The domain that was looked up.
- * @param {object[]} allEntries - The full list of certificates to populate past certs.
+ * @param {object} response - The full API response, holding the fields shared by all entries.
  */
-function displaySingleCertificateInfo(data, domain, allEntries) {
+function displaySingleCertificateInfo(data, domain, response) {
     console.log("displaySingleCertificateInfo", data);
     singleCertificateView.classList.remove('hidden');
     certificateTableSection.classList.add('hidden');
+    liveCertificateView.classList.add('hidden');
     wildcardCertificateMessage.classList.add('hidden');
     errorDisplay.classList.add('hidden'); // Hide any previous errors
     lookupAnotherButton.classList.remove('hidden'); // Show "Lookup Another" button
@@ -356,7 +372,6 @@ function displaySingleCertificateInfo(data, domain, allEntries) {
     operatorCertificate.classList.add('hidden');
 
     domainDisplay.textContent = domain;
-    resultsTitle.innerHTML = `Certificate Information for <span class="domain-display font-bold">${domain}</span>`;
 
     // Check if attestation data exists for the selected entry
     if (!data.certificate_info) {
@@ -387,7 +402,7 @@ function displaySingleCertificateInfo(data, domain, allEntries) {
 
     // Populate Domain Details
     domainCn.textContent = data.certificate_info.subject_cn;
-    domainSans.innerHTML = ''; // Clear previous SANs
+    domainSans.replaceChildren(); // Clear previous SANs
     if (data.certificate_info.san && data.certificate_info.san.length > 0) {
         data.certificate_info.san.forEach(san => {
             const li = document.createElement('li');
@@ -401,15 +416,15 @@ function displaySingleCertificateInfo(data, domain, allEntries) {
     }
 
     if (attestationLink) {
-        attestationLink.href = `${data.attestation_transparency_service_url}/by-hash-pub-key/${data.certificate_info.hash_public_key}`;
+        attestationLink.href = `${response.attestation_transparency_service_url}/by-hash-pub-key/${data.certificate_info.hash_public_key}`;
     }
 
     if (attestationPackageHashLink) {
-        attestationPackageHashLink.href = `${data.provisioning_package_url}`;
+        attestationPackageHashLink.href = `${response.provisioning_package_url}`;
     }
 
     if (attestationOsHashLink) {
-        attestationOsHashLink.href = `${data.os_disk_url}`;
+        attestationOsHashLink.href = `${response.os_disk_url}`;
     }
 
     // Populate Attestation Details
@@ -435,7 +450,12 @@ function displaySingleCertificateInfo(data, domain, allEntries) {
     // Populate Raw Certificate
     rawCertificate.value = data.certificate_info.raw_certificate;
     if (rawCertificateLink) {
-        rawCertificateLink.href = `https://crt.sh/?id=${data.cert_sh_certificate_entry_info.id}`;
+        if (data.cert_sh_certificate_entry_info) {
+            rawCertificateLink.href = `https://crt.sh/?id=${data.cert_sh_certificate_entry_info.id}`;
+            rawCertificateLink.classList.remove('hidden');
+        } else {
+            rawCertificateLink.classList.add('hidden');
+        }
     }
 
     lucide.createIcons();
@@ -457,65 +477,146 @@ function displayTable(data, domain) {
     backToTableButton.classList.add('hidden');
 
     domainDisplay.textContent = domain;
-    resultsTitle.innerHTML = `Certificate Information for <span class="domain-display font-bold">${domain}</span>`;
 
-    if (!data || data.length === 0) {
+    if (!data) {
         displayError(`No certificates were retrieved for ${domain}.`, "lookup");
         return;
     }
 
+    if (!data.live_certificate.certificate_info) {
+        liveCertificateErrorText.textContent = `Failed to retrieve the live certificate:\n${data.live_certificate.reason}`;
+        liveCertificateError.classList.remove('hidden');
+        liveCertificateTableContainer.classList.add('hidden');
+    } else {
+        liveCertificateError.classList.add('hidden');
+        liveCertificateTableContainer.classList.remove('hidden');
+    }
+
+    if (data.crt_sh_error) {
+        crtShErrorText.textContent = `Failed to retrieve historical certificates from crt.sh:\n${data.crt_sh_error}`;
+        crtShError.classList.remove('hidden');
+        crtShEmpty.classList.add('hidden');
+        certificateTableContainer.classList.add('hidden');
+    } else if (data.entries.length === 0) {
+        crtShError.classList.add('hidden');
+        crtShEmpty.classList.remove('hidden');
+        certificateTableContainer.classList.add('hidden');
+    } else {
+        crtShError.classList.add('hidden');
+        crtShEmpty.classList.add('hidden');
+        certificateTableContainer.classList.remove('hidden');
+    }
+
     // Store data globally for later use in detailed view
-    allCertificateData = data[0];
-    has_wildcard_certificate= data[1];
-    
-    certificateTableBody.innerHTML = ''; // Clear previous entries
+    allCertificateData = data.entries;
+    has_wildcard_certificate = data.has_wildcard_certificate;
+
+    certificateTableBody.replaceChildren(); // Clear previous entries
+    liveCertificateTableBody.replaceChildren();
     if (has_wildcard_certificate) {
         wildcardCertificateMessage.classList.remove('hidden');
     }
-    const formatter = new Intl.DateTimeFormat('en-GB', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-    });
 
-    allCertificateData.forEach((cert, index) => {
-        const row = document.createElement('tr');
-        row.className = `border-b border-gray-200 hover:bg-gray-100 cursor-pointer transition-colors duration-200`;
-        row.dataset.index = index; // Store the index to retrieve the data later
-        console.log(cert)
-        let attestationStatusHtml = '';
-        if (!cert.certificate_info || !cert.cluster_info) {
-            attestationStatusHtml = `<span class="text-red-600 font-semibold flex items-center justify-center space-x-1"><i data-lucide="x-circle" class="w-4 h-4"></i><span>Error</span></span>`;
+    liveCertificateView.classList.remove('hidden');
+    if (data.live_certificate.certificate_info) {
+        liveCertificateTableBody.appendChild(createCertificateRow(data.live_certificate, domain, data));
+    }
+
+    allCertificateData.forEach(cert => {
+        certificateTableBody.appendChild(createCertificateRow(cert, domain, data));
+    });
+    lucide.createIcons(); // Re-create icons for the new table rows
+}
+
+const dateFormatter = new Intl.DateTimeFormat('en-GB', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+});
+
+/**
+ * Creates a Lucide icon placeholder, rendered into an SVG by lucide.createIcons().
+ * @param {string} name - The Lucide icon name.
+ * @param {string} className - The classes to apply to the icon.
+ */
+function createIcon(name, className) {
+    const icon = document.createElement('i');
+    icon.dataset.lucide = name;
+    icon.className = className;
+    return icon;
+}
+
+/**
+ * Formats a date string as dd/mm/yyyy, falling back to the raw string if it can't be parsed.
+ * @param {string} value - The date string to format.
+ */
+function formatDate(value) {
+    if (!value) {
+        return 'N/A';
+    }
+    const date = new Date(value);
+    return isNaN(date) ? value : dateFormatter.format(date);
+}
+
+/**
+ * Builds a clickable table row for a certificate entry.
+ * Live certificates have no crt.sh entry, so their fields come from certificate_info.
+ * @param {object} cert - The certificate entry.
+ * @param {string} domain - The domain that was looked up.
+ * @param {object} data - The full API response.
+ */
+function createCertificateRow(cert, domain, data) {
+    const row = document.createElement('tr');
+    row.className = `border-b border-gray-200 hover:bg-gray-100 cursor-pointer transition-colors duration-200`;
+
+    let attestationStatus, attestationColor, attestationIcon;
+    if (!cert.certificate_info || !cert.cluster_info) {
+        [attestationStatus, attestationColor, attestationIcon] = ['Error', 'text-red-600', 'x-circle'];
+    } else if (cert.reason == "" && cert.certificate_info.is_valid_now) {
+        [attestationStatus, attestationColor, attestationIcon] = ['Valid', 'text-green-600', 'check-circle'];
+    } else {
+        [attestationStatus, attestationColor, attestationIcon] = ['Invalid', 'text-red-600', 'alert-triangle'];
+    }
+
+    const statusSpan = document.createElement('span');
+    statusSpan.className = `${attestationColor} font-semibold flex items-center justify-center space-x-1`;
+    const statusText = document.createElement('span');
+    statusText.textContent = attestationStatus;
+    statusSpan.append(createIcon(attestationIcon, 'w-4 h-4'), statusText);
+
+    const crtShEntry = cert.cert_sh_certificate_entry_info;
+    const certificateInfo = cert.certificate_info || {};
+
+    const validFrom = formatDate(crtShEntry ? crtShEntry.not_before : certificateInfo.not_before);
+    const validTo = formatDate(crtShEntry ? crtShEntry.not_after : certificateInfo.not_after);
+    const commonName = (crtShEntry ? crtShEntry.name_value : certificateInfo.subject_cn) || 'N/A';
+    const issuer = (crtShEntry ? crtShEntry.issuer_name : certificateInfo.issuer) || 'N/A';
+    const attestationBackend = data.attestation_backend || 'N/A';
+
+    const addCell = (className, content) => {
+        const cell = document.createElement('td');
+        cell.className = `py-3 px-6 ${className}`;
+        if (content instanceof Node) {
+            cell.append(content);
         } else {
-            const errorMessageIsEmpty = cert.reason == "";
-            const certIsValidNow = cert.certificate_info.is_valid_now;
-
-            const attestationStatus = (errorMessageIsEmpty && certIsValidNow) ? 'Valid' : 'Invalid';
-            const attestationColor = (errorMessageIsEmpty && certIsValidNow) ? 'text-green-600' : 'text-red-600';
-            const attestationIcon = (errorMessageIsEmpty && certIsValidNow) ? 'check-circle' : 'alert-triangle';
-            attestationStatusHtml = `<span class="${attestationColor} font-semibold flex items-center justify-center space-x-1"><i data-lucide="${attestationIcon}" class="w-4 h-4"></i><span>${attestationStatus}</span></span>`;
+            cell.textContent = content;
         }
+        row.append(cell);
+    };
 
-        const validFrom = cert.cert_sh_certificate_entry_info.not_before ? formatter.format(new Date(cert.cert_sh_certificate_entry_info.not_before)) : 'N/A';
-        const validTo = cert.cert_sh_certificate_entry_info.not_after ? formatter.format(new Date(cert.cert_sh_certificate_entry_info.not_after)) : 'N/A';
-        const commonName = cert.cert_sh_certificate_entry_info.name_value || 'N/A';
-        const issuer = cert.cert_sh_certificate_entry_info.issuer_name || 'N/A';
-        const attestationBackend = cert.attestation_backend || 'N/A';
-        row.innerHTML = `
-            <td class="py-3 px-6 text-left whitespace-nowrap">${cert.cert_sh_certificate_entry_info.id}</td>
-            <td class="py-3 px-6 text-left">${validFrom} to ${validTo}</td>
-            <td class="py-3 px-6 text-left">${commonName}</td>
-            <td class="py-3 px-6 text-left">${issuer}</td>
-            <td class="py-3 px-6 text-center">${attestationBackend}</td>
-            <td class="py-3 px-6 text-center">${attestationStatusHtml}</td>
-        `;
-        certificateTableBody.appendChild(row);
-        lucide.createIcons(); // Re-create icons for the new table row
+    if (crtShEntry) {
+        addCell('text-left whitespace-nowrap', crtShEntry.id);
+    }
+    addCell('text-left', `${validFrom} to ${validTo}`);
+    addCell('text-left', commonName);
+    addCell('text-left', issuer);
+    addCell('text-center', attestationBackend);
+    addCell('text-center', statusSpan);
 
-        row.addEventListener('click', () => {
-            displaySingleCertificateInfo(cert, domain, data);
-        });
+    row.addEventListener('click', () => {
+        displaySingleCertificateInfo(cert, domain, data);
     });
+    return row;
 }
 
 
@@ -549,7 +650,7 @@ lookupForm.addEventListener('submit', async (event) => {
     }
 
     inputErrorMessage.classList.add('hidden'); // Hide any previous input errors
-    resultsTitle.innerHTML = `Certificate Information for <span class="domain-display font-bold">${domain}</span>`;
+    domainDisplay.textContent = domain;
     setLoadingState(true);
 
     try {
@@ -592,6 +693,7 @@ lookupAnotherButton.addEventListener('click', () => {
     resultsSection.classList.add('hidden');
     errorDisplay.classList.add('hidden');
     certificateTableSection.classList.add('hidden');
+    liveCertificateView.classList.add('hidden');
     wildcardCertificateMessage.classList.add('hidden');
     singleCertificateView.classList.add('hidden');
     inputErrorMessage.classList.add('hidden');
@@ -600,6 +702,7 @@ lookupAnotherButton.addEventListener('click', () => {
 
 backToTableButton.addEventListener('click', () => {
     certificateTableSection.classList.remove('hidden');
+    liveCertificateView.classList.remove('hidden');
     if (has_wildcard_certificate) {
         wildcardCertificateMessage.classList.remove('hidden');
     }
@@ -607,6 +710,7 @@ backToTableButton.addEventListener('click', () => {
     lookupAnotherButton.classList.remove('hidden'); // Ensure this is always visible
     backToTableButton.classList.add('hidden');
     errorDisplay.classList.add('hidden');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 });
 
 // Initial creation of Lucide icons after the DOM is loaded

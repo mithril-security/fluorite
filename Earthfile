@@ -439,7 +439,7 @@ domain-monitor-image:
     COPY +domain-monitor/monitor ./domain-monitor
     COPY ./measurements/ ./measurements
     COPY ./domain-monitor/static/ ./static/
-    RUN mkdir -p ./certificates ./proofs
+    RUN mkdir -p ./certificates ./proofs ./entries
 
     EXPOSE 8000
     ENTRYPOINT ["./domain-monitor"]

@@ -115,11 +115,44 @@
                     A wildcard domain was issued for this domain. 
                 </p>
             </div>
+            <div id="live-certificate-view" class="hidden mb-8">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-2xl font-semibold text-gray-700">Live Certificate</h3>
+                </div>
+                <div id="live-certificate-error" class="bg-red-100 border border-red-400 text-red-700 px-6 py-4 rounded-lg flex items-start space-x-3 hidden" role="alert">
+                    <i data-lucide="circle-alert" class="w-6 h-6"></i>
+                    <div class="font-medium font-mono" id="live-certificate-error-text" style="white-space: pre-wrap;"></div>
+                </div>
+                <div id="live-certificate-table-container" class="overflow-x-auto">
+                    <table class="min-w-full bg-white rounded-lg shadow-md">
+                        <thead>
+                            <tr class="bg-gray-200 text-gray-600 uppercase text-sm leading-normal">
+                                <th class="py-3 px-6 text-left">Validity</th>
+                                <th class="py-3 px-6 text-left">Common Name</th>
+                                <th class="py-3 px-6 text-left">Issuer</th>
+                                <th class="py-3 px-6 text-center">Attestation Backend</th>
+                                <th class="py-3 px-6 text-center">Attestation Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="live-certificate-table-body" class="text-gray-600 text-sm font-light">
+                            </tbody>
+                    </table>
+                </div>
+            </div>
+
             <div id="certificate-table-view" class="hidden">
                 <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-2xl font-semibold text-gray-700">Certificates</h3>
+                    <h3 class="text-2xl font-semibold text-gray-700">Historical Certificates (source: crt.sh)</h3>
                 </div>
-                <div class="overflow-x-auto">
+                <div id="crt-sh-error" class="bg-red-100 border border-red-400 text-red-700 px-6 py-4 rounded-lg flex items-start space-x-3 hidden" role="alert">
+                    <i data-lucide="circle-alert" class="w-6 h-6"></i>
+                    <div class="font-medium font-mono" id="crt-sh-error-text" style="white-space: pre-wrap;"></div>
+                </div>
+                <div id="crt-sh-empty" class="bg-yellow-100 border border-yellow-400 text-yellow-700 px-6 py-4 rounded-lg flex items-center space-x-3 hidden" role="alert">
+                    <i data-lucide="search-x" class="w-6 h-6"></i>
+                    <p class="font-medium">No certificates were found on crt.sh for this domain.</p>
+                </div>
+                <div id="certificate-table-container" class="overflow-x-auto">
                     <table class="min-w-full bg-white rounded-lg shadow-md">
                         <thead>
                             <tr class="bg-gray-200 text-gray-600 uppercase text-sm leading-normal">
