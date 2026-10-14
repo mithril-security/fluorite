@@ -3,10 +3,13 @@ use axum::{Json, extract::State, response::IntoResponse};
 use base64::prelude::*;
 use oid_registry::{OID_PKCS1_RSAENCRYPTION, OidRegistry};
 use reqwest::Client;
+use reqwest::tls::TlsInfo;
 use serde_json::Value;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::fs;
 use url::Url;
+use x509_parser::certificate::X509Certificate;
 use x509_parser::utils::format_serial;
 
 use attestation::cbor;
@@ -20,10 +23,13 @@ use provisioning_structs::structs::{
 
 use anyhow::{Context, anyhow};
 use futures::future::join_all;
+use pem::Pem;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use x509_parser::parse_x509_certificate;
 use x509_parser::pem::parse_x509_pem;
+
+use chrono::Utc;
 
 use crate::web_error::AppError;
 
@@ -84,15 +90,23 @@ pub(crate) struct CertificateInfo {
 }
 #[derive(Serialize, Deserialize)]
 pub(crate) struct Entry {
-    pub cert_sh_certificate_entry_info: CertificateEntry,
-    pub attestation_backend: AttestationBackend,
+    pub cert_sh_certificate_entry_info: Option<CertificateEntry>,
     pub cluster_info: Option<ClusterInfo>,
     pub certificate_info: Option<CertificateInfo>,
+    pub attestation_report: Option<Value>,
+    pub reason: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub(crate) struct Entries {
+    pub attestation_backend: AttestationBackend,
     pub os_disk_url: String,
     pub provisioning_package_url: String,
     pub attestation_transparency_service_url: String,
-    pub attestation_report: Option<Value>,
-    pub reason: String,
+    pub live_certificate: Entry,
+    pub entries: Vec<Entry>,
+    pub has_wildcard_certificate: bool,
+    pub crt_sh_error: Option<String>,
 }
 
 // #[get("/get_entries")]
@@ -104,59 +118,11 @@ pub(crate) async fn wrapper_get_entries(
     Ok(Json(result))
 }
 impl MyState {
-    async fn get_certificate_info(
+    fn certificate_info_from_certificate(
         &self,
-        id: u64,
         oid_registry: &OidRegistry<'_>,
+        certificate: &X509Certificate<'_>,
     ) -> anyhow::Result<CertificateInfo> {
-        log::info!("Downloading certificate entry with ID {} from CT logs.", id);
-        let path = format!("./certificates/{id}.crt");
-
-        let certificate_pem_bytes = if fs::try_exists(&path).await.context(format!(
-            "Failed to check existance of certificate at {path}"
-        ))? {
-            log::info!("Using cached certificate with id {}", id);
-            fs::read(&path)
-                .await
-                .context(format!("Failed to read cached certificate at {path}"))?
-                .into()
-        } else {
-            log::info!("Getting certificate with id {} from crt.sh", id);
-            let response_bytes = self
-                .client
-                .get(format!("https://crt.sh/?d={id}"))
-                .send()
-                .await
-                .context(format!("Network error requesting certificate {id}"))?
-                .error_for_status()?
-                .bytes()
-                .await?;
-
-            fs::write(&path, &response_bytes)
-                .await
-                .context(format!("Failed to write certificate to {path}"))?;
-
-            response_bytes
-        };
-
-        log::info!(
-            "Got certificate entry with ID {} from CT logs. Processing fields.",
-            id
-        );
-        let parsed_pem = parse_x509_pem(&certificate_pem_bytes)
-            .context(format!(
-                "Failed parsing PEM certificate for certificate entry with id {id}"
-            ))?
-            .1;
-        let certificate_pem_string = String::from_utf8(certificate_pem_bytes.to_vec())
-            .context("Error converting from certificate_pem_bytes to certificate_pem_string")?;
-
-        let certificate = parse_x509_certificate(&parsed_pem.contents)
-            .context(format!(
-                "Failed parsing DER data for certificate entry with id {id}"
-            ))?
-            .1;
-
         let certificate_version = certificate.version.0.to_string();
         let public_key = &certificate.subject_pki;
         let parsed_public_key = &public_key
@@ -265,10 +231,12 @@ impl MyState {
             signing_algorithm_description_oid_entry.sn()
         );
 
-        log::info!("Done processing certificate entry with ID {}.", id);
+        let pem_struct = Pem::new("CERTIFICATE", certificate.as_ref());
+        let raw_certificate = pem::encode(&pem_struct);
+
         Ok(CertificateInfo {
             public_key: public_key_str,
-            raw_certificate: certificate_pem_string,
+            raw_certificate: raw_certificate,
             version: certificate_version,
             hash_public_key: hash_pub_key.clone(),
             issuer: issuer,
@@ -285,6 +253,63 @@ impl MyState {
             public_key_algorithm_parameters: public_key_algorithm_parameters,
             signing_algorithm: signing_algorithm,
         })
+    }
+
+    async fn get_certificate_info(
+        &self,
+        id: u64,
+        oid_registry: &OidRegistry<'_>,
+    ) -> anyhow::Result<CertificateInfo> {
+        log::info!("Downloading certificate entry with ID {} from CT logs.", id);
+        let path = format!("./certificates/{id}.crt");
+
+        let certificate_pem_bytes = if fs::try_exists(&path).await.context(format!(
+            "Failed to check existance of certificate at {path}"
+        ))? {
+            log::info!("Using cached certificate with id {}", id);
+            fs::read(&path)
+                .await
+                .context(format!("Failed to read cached certificate at {path}"))?
+                .into()
+        } else {
+            log::info!("Getting certificate with id {} from crt.sh", id);
+            let response_bytes = self
+                .client
+                .get(format!("https://crt.sh/?d={id}"))
+                .send()
+                .await
+                .context(format!("Network error requesting certificate {id}"))?
+                .error_for_status()?
+                .bytes()
+                .await?;
+
+            fs::write(&path, &response_bytes)
+                .await
+                .context(format!("Failed to write certificate to {path}"))?;
+
+            response_bytes
+        };
+
+        log::info!(
+            "Got certificate entry with ID {} from CT logs. Processing fields.",
+            id
+        );
+        let parsed_pem = parse_x509_pem(&certificate_pem_bytes)
+            .context(format!(
+                "Failed parsing PEM certificate for certificate entry with id {id}"
+            ))?
+            .1;
+
+        let certificate = parse_x509_certificate(&parsed_pem.contents)
+            .context(format!(
+                "Failed parsing DER data for certificate entry with id {id}"
+            ))?
+            .1;
+        let certificate_info =
+            self.certificate_info_from_certificate(oid_registry, &certificate)?;
+
+        log::info!("Done processing certificate entry with ID {}.", id);
+        Ok(certificate_info)
     }
 
     async fn get_cluster_info(
@@ -428,45 +453,97 @@ impl MyState {
             String::new(),
         )
     }
-    async fn get_entries(self, domain: Domain) -> anyhow::Result<(Vec<Entry>, bool)> {
+
+    async fn get_live_certificate_info(
+        &self,
+        oid_registry: &OidRegistry<'_>,
+        host: &str,
+    ) -> anyhow::Result<CertificateInfo> {
+        let client = reqwest::Client::builder()
+            .tls_info(true)
+            .timeout(Duration::from_secs(5))
+            .build()?;
+
+        // The HTTP status is irrelevant, only the TLS peer certificate matters
+        let response = client
+            .get(format!("https://{host}"))
+            .send()
+            .await
+            .context(format!(
+                "Network error connecting to {host} to get the live certificate"
+            ))?;
+        let der = response
+            .extensions()
+            .get::<TlsInfo>()
+            .and_then(|info| info.peer_certificate())
+            .ok_or_else(|| anyhow::anyhow!("no peer certificate"))?;
+
+        let certificate = parse_x509_certificate(&der)
+            .context(format!("Failed parsing DER data for live certificate"))?
+            .1;
+
+        self.certificate_info_from_certificate(oid_registry, &certificate)
+    }
+
+    async fn get_live_certificate(&self, oid_registry: &OidRegistry<'_>, host: &str) -> Entry {
+        let (certificate_info, cluster_info, attestation_report, reason) =
+            match self.get_live_certificate_info(oid_registry, host).await {
+                Err(err) => (None, None, None, format!("{err:?} ")),
+                Ok(certificate_info) => {
+                    match self
+                        .get_cluster_info(
+                            0,
+                            &certificate_info.hash_public_key,
+                            &self.attestation_backend,
+                        )
+                        .await
+                    {
+                        Ok((cluster_info, report)) => (
+                            Some(certificate_info),
+                            Some(cluster_info),
+                            Some(report),
+                            String::new(),
+                        ),
+                        Err(err) => (Some(certificate_info), None, None, format!("{err:?} ")),
+                    }
+                }
+            };
+
+        Entry {
+            cert_sh_certificate_entry_info: None,
+            certificate_info: certificate_info,
+            cluster_info: cluster_info,
+            attestation_report: attestation_report,
+            reason: reason,
+        }
+    }
+
+    async fn get_entries(self, domain: Domain) -> anyhow::Result<Entries> {
         let host_url = Url::parse(&domain.domain).context("Error parsing URL")?;
         let host = host_url
             .host_str()
             .ok_or(anyhow!("Could not extract the host name out of the url"))?;
-        log::info!("Getting certificates of {} from CT logs.", host);
-        // deduplicate=Y -> Remove Precertificates
-        // match=single -> Return exact matches
-        let response = self
-            .client
-            .get(format!("https://crt.sh/json?deduplicate=Y&match=single&q={host}"))
-            .send()
-            .await
-            .context("Network error requesting certificates issued for domain to crt.sh")?
-            .error_for_status()
-            .context("HTTP error requesting certificates issued for domain to crt.sh")?;
 
-        let certificate_entries = response.json::<CertificateEntries>().await?;
-
-        let mut has_wildcard_certificate = false;
-
-        let parts: Vec<&str> = host.split('.').collect();
-        if parts.len() > 2 {
-            let wildcard_domain = format!("*.{}", parts[1..].join("."));
-            let response = self
-                .client
-                .get(format!(
-                    "https://crt.sh/json?match=ILIKE&q={wildcard_domain}"
-                ))
-                .send()
-                .await
-                .context("Network error requesting certificates issued for domain to crt.sh")?
-                .error_for_status()
-                .context("HTTP error requesting certificates issued for domain to crt.sh")?;
-            let wildcard_cert_entries = response.json::<CertificateEntries>().await?;
-            has_wildcard_certificate = !wildcard_cert_entries.is_empty();
+        if !host.ends_with(".mithrilsecurity.io") {
+            return Err(anyhow!("Only .mithrilsecurity.io domains are supported"));
         }
 
         let oid_registry = OidRegistry::default().with_crypto();
+
+        // The live certificate and the crt.sh entries are independent, a failure of one must not hide the other
+        let (live_certificate, certificate_entries_result) = tokio::join!(
+            self.get_live_certificate(&oid_registry, host),
+            self.get_certificate_entries(host)
+        );
+
+        let (certificate_entries, has_wildcard_certificate, crt_sh_error) =
+            match certificate_entries_result {
+                Ok((certificate_entries, has_wildcard_certificate)) => {
+                    (certificate_entries, has_wildcard_certificate, None)
+                }
+                Err(err) => (Vec::new(), false, Some(format!("{err:?}"))),
+            };
+
         let attestation_backend = self.attestation_backend;
 
         let entries = join_all(certificate_entries.iter().map(|certificate_entry| async {
@@ -476,19 +553,89 @@ impl MyState {
                 .validate_entry(&oid_registry, id, &attestation_backend)
                 .await;
             Entry {
-                cert_sh_certificate_entry_info: certificate_entry.clone(),
-                attestation_backend: attestation_backend,
+                cert_sh_certificate_entry_info: Some(certificate_entry.clone()),
                 certificate_info: certificate_info,
                 cluster_info: cluster_info,
                 attestation_report: attestation_report,
                 reason: error_message,
-                attestation_transparency_service_url: self.storage_url.to_string(),
-                provisioning_package_url: self.provisioning_package_url.to_string(),
-                os_disk_url: self.os_disk_url.to_string(),
             }
         }))
         .await;
 
-        Ok((entries, has_wildcard_certificate))
+        Ok(Entries {
+            attestation_backend,
+            os_disk_url: self.os_disk_url.to_string(),
+            provisioning_package_url: self.provisioning_package_url.to_string(),
+            attestation_transparency_service_url: self.storage_url.to_string(),
+            live_certificate,
+            entries,
+            has_wildcard_certificate,
+            crt_sh_error,
+        })
+    }
+
+    async fn get_certificate_entries(
+        &self,
+        host: &str,
+    ) -> anyhow::Result<(CertificateEntries, bool)> {
+        log::info!("Getting certificates of {} from CT logs.", host);
+
+        let today = Utc::now().format("%Y_%m_%d").to_string();
+        let path = format!("./entries/{today}_{host}.json");
+
+        let (certificate_entries, has_wildcard_certificate): (CertificateEntries, bool) =
+            if fs::try_exists(&path).await.context(format!(
+                "Failed to check existance of certificate entries at {path}"
+            ))? {
+                log::info!("Using cached certificate entries with date {}", today);
+                let (certificate_entries, has_wildcard_certificate): (CertificateEntries, bool) =
+                    serde_json::from_slice(&fs::read(&path).await.context(format!(
+                        "Failed to read cached certificate entries at {path}"
+                    ))?)?;
+                (certificate_entries, has_wildcard_certificate)
+            } else {
+                // deduplicate=Y -> Remove Precertificates
+                // match=single -> Return exact matches
+                log::info!("Getting certificate entries from crt.sh");
+                let response = self
+                .client
+                .get(format!("https://crt.sh/json?deduplicate=Y&match=single&q={host}"))
+                .send()
+                .await
+                .context("Network error requesting certificates issued for domain to crt.sh. Is crt.sh down?")?
+                .error_for_status()
+                .context("HTTP error requesting certificates issued for domain to crt.sh. Is crt.sh down?")?;
+                let certificate_entries = response.json::<CertificateEntries>().await?;
+
+                let mut has_wildcard_certificate = false;
+
+                let parts: Vec<&str> = host.split('.').collect();
+                if parts.len() > 2 {
+                    let wildcard_domain = format!("*.{}", parts[1..].join("."));
+                    let response = self
+                    .client
+                    .get(format!(
+                        "https://crt.sh/json?match=ILIKE&q={wildcard_domain}&deduplicate=Y&exclude=expired"
+                    ))
+                    .send()
+                    .await
+                    .context("Network error requesting certificates issued for domain to crt.sh. Is crt.sh down?")?
+                    .error_for_status()
+                    .context("HTTP error requesting certificates issued for domain to crt.sh. Is crt.sh down?")?;
+                    let wildcard_cert_entries = response.json::<CertificateEntries>().await?;
+                    has_wildcard_certificate = !wildcard_cert_entries.is_empty();
+                }
+
+                let value = serde_json::to_value((&certificate_entries, has_wildcard_certificate))?;
+                if !certificate_entries.is_empty() {
+                    fs::write(&path, serde_json::to_string(&value)?.as_bytes())
+                        .await
+                        .context(format!("Failed to write certificate entries to {path}"))?;
+                }
+
+                (certificate_entries.into(), has_wildcard_certificate)
+            };
+
+        Ok((certificate_entries, has_wildcard_certificate))
     }
 }
