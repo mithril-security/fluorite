@@ -9,7 +9,7 @@ permissions:
 
 env:
   VERSION: 0.1.0
-  DOMAIN_MONITOR_VERSION: 0.1.1
+  DOMAIN_MONITOR_VERSION: 0.1.2
   ATS_VERSION: 0.1.0
   ZONE_NAME: test.mithrilsecurity.io
   AZURE_COMMUNITY_GALLERY_ID: "/CommunityGalleries/FluoriteOS-34c46669-97d8-4ac7-adcf-2d18e6662797/Images"
